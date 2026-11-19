@@ -9,6 +9,8 @@ from . import figures
 
 DEMO_EMAIL = "alex@mit.edu"
 DEMO_PASSWORD = "research2026"
+DEMO_NAME = "Alex Morgan"
+DEMO_AVATAR = None
 
 
 def _block(kind: str, **kw) -> dict:
@@ -151,31 +153,73 @@ DEFAULT_SETTINGS = {
 }
 
 
+def ensure_demo_user(conn) -> str:
+    """Make sure the demo account exists, is verified and has a usable password.
+
+    Runs on every startup: for a database seeded before real auth existed the
+    row is upgraded in place (``email_verified=1``) instead of being recreated,
+    so existing projects/versions keep pointing at the same user id.
+    """
+    from . import security
+
+    user_id = "usr-alex"
+    row = conn.execute("SELECT * FROM users WHERE email = ?", (DEMO_EMAIL,)).fetchone()
+    if row is None:
+        conn.execute(
+            "INSERT INTO users (id, email, name, password_hash, role, plan, credits,"
+            " institution, department, created_at, google_sub, email_verified, avatar_url)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                user_id,
+                DEMO_EMAIL,
+                DEMO_NAME,
+                security.hash_password(DEMO_PASSWORD),
+                "student",
+                "free",
+                14,
+                "Massachusetts Institute of Technology",
+                "Department of Computer Science",
+                datetime.now(timezone.utc).isoformat(),
+                None,
+                1,
+                DEMO_AVATAR,
+            ),
+        )
+        conn.commit()
+        return user_id
+
+    user_id = str(row["id"])
+    updates: dict[str, object] = {}
+    if not int(row["email_verified"] or 0):
+        updates["email_verified"] = 1
+    # Keep the documented demo password working even if the row predates it.
+    if not row["password_hash"] or not security.verify_password(
+        DEMO_PASSWORD, row["password_hash"]
+    ):
+        updates["password_hash"] = security.hash_password(DEMO_PASSWORD)
+    if not (row["name"] or "").strip():
+        updates["name"] = DEMO_NAME
+    if updates:
+        assignments = ", ".join(f"{column}=?" for column in updates)
+        conn.execute(
+            f"UPDATE users SET {assignments} WHERE id=?",
+            (*updates.values(), user_id),
+        )
+        conn.commit()
+    return user_id
+
+
 def seed(conn) -> None:
-    from . import latex, security
+    from . import latex
 
     now = datetime.now(timezone.utc)
-    user_id = "usr-alex"
-    cur = conn.execute("SELECT id FROM users WHERE email = ?", (DEMO_EMAIL,))
+    user_id = ensure_demo_user(conn)
+    cur = conn.execute("SELECT id FROM projects WHERE user_id = ? LIMIT 1", (user_id,))
     if cur.fetchone():
         return
 
-    conn.execute(
-        "INSERT INTO users (id, email, name, password_hash, role, plan, credits, institution, department, created_at)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (
-            user_id,
-            DEMO_EMAIL,
-            "Alex Morgan",
-            security.hash_password(DEMO_PASSWORD),
-            "student",
-            "free",
-            14,
-            "Massachusetts Institute of Technology",
-            "Department of Computer Science",
-            now.isoformat(),
-        ),
-    )
+    # Projects are only seeded on a truly empty workspace; the user row itself
+    # was already ensured above.
 
     projects = [
         (

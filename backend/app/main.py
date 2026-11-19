@@ -20,8 +20,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import ai, compiler, db, env, exporter, figures, latex, security
+from . import auth as auth_mod
+from . import captcha as captcha_mod
+from . import google_auth, mailer
 from . import seed as seed_mod
 
+# Import order matters only for constants; the Gemini model is resolved at call
+# time inside ai.model(), so loading .env after the imports is still safe.
 env.load_env()
 db.init_db()
 
@@ -70,10 +75,14 @@ def current_user(request: Request) -> dict[str, Any]:
         conn.close()
     if not row:
         raise HTTPException(status_code=401, detail="Unknown user")
+    if not int(row["email_verified"] or 0):
+        # Unverified accounts cannot open the app, even with a stray token.
+        raise HTTPException(status_code=403, detail="Verify your email before signing in.")
     return dict(row)
 
 
 def public_user(row: dict[str, Any]) -> dict[str, Any]:
+    password_hash = row["password_hash"] or ""
     return {
         "id": row["id"],
         "email": row["email"],
@@ -83,18 +92,63 @@ def public_user(row: dict[str, Any]) -> dict[str, Any]:
         "credits": row["credits"],
         "institution": row["institution"],
         "department": row["department"],
+        "emailVerified": bool(int(row["email_verified"] or 0)),
+        "hasPassword": bool(password_hash),
+        "avatarUrl": row["avatar_url"] or None,
     }
+
+
+def auth_capabilities() -> dict[str, Any]:
+    """The ``auth`` block of ``GET /api/health`` (contract §1)."""
+    cid = google_auth.client_id()
+    return {
+        "googleEnabled": bool(cid),
+        "googleClientId": cid or None,
+        "emailDelivery": mailer.delivery_mode(),
+        "captcha": "image",
+    }
+
+
+def demo_login_enabled() -> bool:
+    return env.get("AI2LATEX_DEMO_LOGIN", "1") != "0"
+
+
+def is_valid_email(email: str) -> bool:
+    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", email))
+
+
+def _user_by_email(conn, email: str):
+    return conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
+
+def _user_by_id(conn, uid: str):
+    return conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
 
 
 class SignupBody(BaseModel):
     email: str
     password: str
     name: str = ""
+    captchaId: str = ""
+    captchaAnswer: str = ""
 
 
 class LoginBody(BaseModel):
     email: str
     password: str
+
+
+class VerifyEmailBody(BaseModel):
+    pendingToken: str
+    code: str
+
+
+class ResendCodeBody(BaseModel):
+    pendingToken: str
+
+
+class GoogleLoginBody(BaseModel):
+    credential: str = ""
 
 
 @app.get("/api/health")
@@ -103,28 +157,65 @@ def health() -> dict[str, Any]:
         "ok": True,
         "ai": "gemini" if ai.available() else "offline-tutor",
         "compiler": "tectonic" if compiler.engine_available() else "preview",
-        "model": ai.GEMINI_MODEL if ai.available() else "deterministic-tutor",
+        "model": ai.model() if ai.available() else "deterministic-tutor",
+        "auth": auth_capabilities(),
         "time": now_iso(),
     }
+
+
+# --------------------------------------------------------------------------
+# Auth routes (docs/auth-contract.md)
+# --------------------------------------------------------------------------
+
+
+@app.get("/api/auth/captcha")
+def get_captcha() -> dict[str, Any]:
+    return captcha_mod.create()
+
+
+def _pending_response(row: dict[str, Any], conn, *, include_email: bool = True) -> dict[str, Any]:
+    """Body shared by signup / unverified-login (contract §3,§6)."""
+    delivery = auth_mod.deliver(conn, row, force=True)
+    payload: dict[str, Any] = {
+        "needsVerification": True,
+        "pendingToken": auth_mod.make_pending_token(str(row["id"]), str(row["email"])),
+        "emailDelivery": delivery["emailDelivery"],
+    }
+    if include_email:
+        payload["email"] = row["email"]
+    if "devCode" in delivery:
+        payload["devCode"] = delivery["devCode"]
+    return payload
 
 
 @app.post("/api/auth/signup")
 def signup(body: SignupBody) -> dict[str, Any]:
     email = body.email.strip().lower()
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", email):
+    if not is_valid_email(email):
         raise HTTPException(400, "Enter a valid email address.")
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters.")
+
+    ok, detail = captcha_mod.consume(body.captchaId, body.captchaAnswer)
+    if not ok:
+        raise HTTPException(400, detail)
+
     conn = db.connect()
     try:
-        exists = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-        if exists:
-            raise HTTPException(409, "That email already has a workspace. Sign in instead.")
+        existing = _user_by_email(conn, email)
+        if existing:
+            if int(existing["email_verified"] or 0):
+                raise HTTPException(409, "That email already has a workspace. Sign in instead.")
+            # Unverified: resend a code and return the same body. Never reveal
+            # whether the supplied password matched the pending account.
+            return _pending_response(dict(existing), conn)
+
         uid = "usr-" + uuid.uuid4().hex[:10]
         name = body.name.strip() or email.split("@")[0].replace(".", " ").title()
         conn.execute(
-            "INSERT INTO users (id,email,name,password_hash,role,plan,credits,institution,department,created_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO users (id,email,name,password_hash,role,plan,credits,institution,"
+            "department,created_at,google_sub,email_verified,avatar_url)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 uid,
                 email,
@@ -136,13 +227,73 @@ def signup(body: SignupBody) -> dict[str, Any]:
                 "",
                 "",
                 now_iso(),
+                None,
+                0,
+                None,
             ),
         )
         conn.commit()
-        row = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+        row = _user_by_id(conn, uid)
+        return _pending_response(dict(row), conn)
     finally:
         conn.close()
-    return {"token": security.make_token(uid), "user": public_user(dict(row))}
+
+
+@app.post("/api/auth/verify-email")
+def verify_email(body: VerifyEmailBody) -> dict[str, Any]:
+    claims = auth_mod.read_pending_token(body.pendingToken)
+    if not claims:
+        raise HTTPException(401, "This verification link is no longer valid.")
+    uid = str(claims.get("sub") or "")
+
+    conn = db.connect()
+    try:
+        row = _user_by_id(conn, uid)
+        if not row:
+            raise HTTPException(401, "This verification link is no longer valid.")
+        status, detail = auth_mod.verify_code(conn, uid, body.code)
+        if status == "incorrect":
+            raise HTTPException(400, auth_mod.ERR_CODE_INCORRECT)
+        if status == "expired":
+            raise HTTPException(400, auth_mod.ERR_CODE_EXPIRED)
+
+        conn.execute("UPDATE users SET email_verified=1 WHERE id=?", (uid,))
+        conn.commit()
+        row = _user_by_id(conn, uid)
+        return {"token": security.make_token(uid), "user": public_user(dict(row))}
+    finally:
+        conn.close()
+
+
+@app.post("/api/auth/resend-code")
+def resend_code(body: ResendCodeBody) -> dict[str, Any]:
+    claims = auth_mod.read_pending_token(body.pendingToken)
+    if not claims:
+        raise HTTPException(401, "This verification link is no longer valid.")
+    uid = str(claims.get("sub") or "")
+
+    conn = db.connect()
+    try:
+        row = _user_by_id(conn, uid)
+        if not row:
+            raise HTTPException(401, "This verification link is no longer valid.")
+        if int(row["email_verified"] or 0):
+            # Nothing to verify; treat as an expired verification session.
+            raise HTTPException(401, "This verification link is no longer valid.")
+        if auth_mod.resend_seconds_remaining(conn, uid) > 0:
+            raise HTTPException(429, auth_mod.ERR_RESEND_TOO_SOON)
+
+        delivery = auth_mod.deliver(conn, dict(row), force=True)
+        payload: dict[str, Any] = {
+            "ok": True,
+            "emailDelivery": delivery["emailDelivery"],
+            "expiresIn": auth_mod.CODE_TTL_SECONDS,
+        }
+        if "devCode" in delivery:
+            payload["devCode"] = delivery["devCode"]
+        return payload
+    finally:
+        conn.close()
 
 
 @app.post("/api/auth/login")
@@ -150,25 +301,104 @@ def login(body: LoginBody) -> dict[str, Any]:
     email = body.email.strip().lower()
     conn = db.connect()
     try:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        row = _user_by_email(conn, email)
+        if not row:
+            raise HTTPException(401, "Email or password is incorrect.")
+        if not (row["password_hash"] or ""):
+            # Google-only account: password login is not the way in (contract §6).
+            raise HTTPException(400, "This account uses Google sign-in. Continue with Google.")
+        if not security.verify_password(body.password, row["password_hash"]):
+            raise HTTPException(401, "Email or password is incorrect.")
+        if not int(row["email_verified"] or 0):
+            payload = _pending_response(dict(row), conn, include_email=False)
+            payload.update(
+                {"detail": "Verify your email before signing in.", "status": 403}
+            )
+            return JSONResponse(status_code=403, content=payload)
+        fresh = _user_by_id(conn, str(row["id"]))
+        return {"token": security.make_token(str(row["id"])), "user": public_user(dict(fresh))}
     finally:
         conn.close()
-    if not row or not security.verify_password(body.password, row["password_hash"]):
-        raise HTTPException(401, "Email or password is incorrect.")
-    return {"token": security.make_token(row["id"]), "user": public_user(dict(row))}
 
 
 @app.post("/api/auth/google")
-def google_login() -> dict[str, Any]:
-    """Prototype single-click path: opens the demo researcher workspace."""
+def google_login(body: GoogleLoginBody | None = None) -> dict[str, Any]:
+    """Real Google Identity Services sign-in (contract §7)."""
+    if not google_auth.enabled():
+        raise HTTPException(501, google_auth.ERR_NOT_CONFIGURED)
+    credential = (body.credential if body else "") or ""
+    try:
+        claims = google_auth.verify_credential(credential)
+    except google_auth.GoogleAuthError as exc:
+        raise HTTPException(401, google_auth.ERR_FAILED) from exc
+
+    profile = google_auth.claims_to_profile(claims)
     conn = db.connect()
     try:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (seed_mod.DEMO_EMAIL,)).fetchone()
+        row = _user_by_email(conn, profile["email"])
+        if row:
+            uid = str(row["id"])
+            updates: dict[str, object] = {"email_verified": 1}
+            if not row["google_sub"]:
+                updates["google_sub"] = profile["google_sub"]
+            if profile["avatar_url"] and not row["avatar_url"]:
+                updates["avatar_url"] = profile["avatar_url"]
+            if not (row["name"] or "").strip():
+                updates["name"] = profile["name"]
+            assignments = ", ".join(f"{column}=?" for column in updates)
+            conn.execute(
+                f"UPDATE users SET {assignments} WHERE id=?",
+                (*updates.values(), uid),
+            )
+            conn.commit()
+        else:
+            uid = "usr-" + uuid.uuid4().hex[:10]
+            conn.execute(
+                "INSERT INTO users (id,email,name,password_hash,role,plan,credits,"
+                "institution,department,created_at,google_sub,email_verified,avatar_url)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    uid,
+                    profile["email"],
+                    profile["name"],
+                    "",
+                    "student",
+                    "free",
+                    20,
+                    "",
+                    "",
+                    now_iso(),
+                    profile["google_sub"],
+                    1,
+                    profile["avatar_url"],
+                ),
+            )
+            conn.commit()
+        row = _user_by_id(conn, uid)
+        return {"token": security.make_token(uid), "user": public_user(dict(row))}
     finally:
         conn.close()
-    if not row:
-        raise HTTPException(500, "Demo workspace is not seeded.")
-    return {"token": security.make_token(row["id"]), "user": public_user(dict(row))}
+
+
+@app.get("/api/auth/google/config")
+def google_config() -> dict[str, Any]:
+    return google_auth.config()
+
+
+@app.post("/api/auth/demo")
+def demo_login() -> dict[str, Any]:
+    """Explicit demo shortcut (contract §8). Never fakes a Google sign-in."""
+    if not demo_login_enabled():
+        raise HTTPException(403, "Demo access is disabled.")
+    conn = db.connect()
+    try:
+        row = _user_by_email(conn, seed_mod.DEMO_EMAIL)
+        if not row:
+            raise HTTPException(500, "Demo workspace is not seeded.")
+        row = _user_by_id(conn, str(row["id"]))
+        return {"token": security.make_token(str(row["id"])), "user": public_user(dict(row))}
+    finally:
+        conn.close()
 
 
 @app.get("/api/auth/me")

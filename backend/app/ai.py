@@ -1,26 +1,53 @@
 """AI orchestration.
 
-Production route: Google Gemini 2.5 Flash (``GEMINI_API_KEY``).
-Prototype route: a deterministic, offline "tutor" that produces the same
-structured shapes the UI consumes, so every screen is usable with no keys.
+Production route: Google Gemini (``GEMINI_API_KEY``), model resolved from
+``GEMINI_MODEL`` at *call* time. Prototype route: a deterministic, offline
+"tutor" that produces the same structured shapes the UI consumes, so every
+screen is usable with no keys.
 
-All AI output is normalised into blocks, which is what makes the answer
-"addable to the document" without ever writing raw LaTeX by hand.
+The model id must never be frozen at import time: ``main.py`` imports this
+module before ``env.load_env()`` runs, so a module-level constant would always
+read the pre-dotenv value (that bug pinned the app to the retired
+``gemini-2.5-flash`` and every request 404'd).
 """
 from __future__ import annotations
 
 import json
+import random
 import re
+import time
 from typing import Any
 
 import httpx
 
 from . import env, latex
 
-GEMINI_MODEL = env.get("GEMINI_MODEL", "gemini-2.5-flash")
+# ``gemini-3.5-flash-lite`` is verified for chat, strict-JSON polish and vision
+# OCR *and* is the cheapest reliable route. It still answers HTTP 503
+# "experiencing high demand" on roughly one call in three under load, which is
+# why every Gemini call below is retried and then allowed to fall back to the
+# offline tutor instead of surfacing a 500 to the researcher.
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
+
+# 503 is Google's transient "high demand" signal; 429 is the quota throttle.
+# 5xx siblings are treated the same way: retrying is safe because generation is
+# idempotent for our prompts (no side effects server-side).
+RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 3
+BASE_BACKOFF_SECONDS = 0.8
+MAX_TOTAL_SECONDS = 20.0
+
+# Indirections so tests can substitute transport/clock without monkeypatching
+# global modules.
+_sleep = time.sleep
+
+
+def _new_client(timeout: float) -> httpx.Client:
+    return httpx.Client(timeout=timeout)
+
 
 SYSTEM_RULES = """You are AI2LaTeX, an academic writing assistant.
 Rules:
@@ -31,12 +58,84 @@ Rules:
 5. Academic tone, no filler, no self-reference."""
 
 
+def model() -> str:
+    """Resolve the Gemini model id on every call (reads ``.env`` each time)."""
+    return env.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or DEFAULT_GEMINI_MODEL
+
+
+def __getattr__(name: str) -> Any:
+    """Keep ``ai.GEMINI_MODEL`` working for external readers, dynamically.
+
+    A plain module-level constant was the original bug: it was evaluated before
+    ``env.load_env()`` ran. Resolving through ``__getattr__`` preserves the old
+    attribute name without reintroducing the stale value.
+    """
+    if name == "GEMINI_MODEL":
+        return model()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def api_key() -> str:
     return env.get("GEMINI_API_KEY") or env.get("GOOGLE_API_KEY")
 
 
 def available() -> bool:
     return bool(api_key())
+
+
+def _generate_url(model_name: str | None = None) -> str:
+    return GEMINI_URL.format(model=model_name or model())
+
+
+
+def _post_with_retry(
+    url: str,
+    *,
+    params: dict[str, str],
+    json_body: dict[str, Any],
+    timeout: float,
+) -> dict[str, Any] | None:
+    """POST to Gemini, retrying transient high-demand / rate-limit responses.
+
+    503 = transient "high demand" from Google, so this must never fail the user
+    request: after ``MAX_ATTEMPTS`` (budget capped at ``MAX_TOTAL_SECONDS``) it
+    returns ``None`` and the caller silently uses the offline tutor.
+    """
+    started = time.monotonic()
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            with _new_client(timeout) as client:
+                response = client.post(url, params=params, json=json_body)
+            if response.status_code in RETRYABLE_STATUS:
+                if attempt < MAX_ATTEMPTS:
+                    _backoff(attempt, started)
+                    continue
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return data if isinstance(data, dict) else None
+        except httpx.HTTPStatusError as exc:  # non-retryable 4xx, 404 model, ...
+            status = exc.response.status_code if exc.response is not None else 0
+            if status in RETRYABLE_STATUS and attempt < MAX_ATTEMPTS:
+                _backoff(attempt, started)
+                continue
+            return None
+        except Exception:  # transport error, timeout or invalid JSON
+            if attempt < MAX_ATTEMPTS:
+                _backoff(attempt, started)
+                continue
+            return None
+    return None
+
+
+def _backoff(attempt: int, started: float) -> None:
+    """Exponential backoff with jitter, bounded by the total time budget."""
+    delay = BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+    delay += random.uniform(0, delay * 0.5)  # jitter avoids thundering herds
+    budget_left = MAX_TOTAL_SECONDS - (time.monotonic() - started)
+    if budget_left <= 0:
+        return
+    _sleep(min(delay, budget_left))
 
 
 def _call_gemini(prompt: str, *, temperature: float = 0.4, max_tokens: int = 1400) -> str | None:
@@ -51,23 +150,17 @@ def _call_gemini(prompt: str, *, temperature: float = 0.4, max_tokens: int = 140
             "maxOutputTokens": max_tokens,
         },
     }
-    try:
-        with httpx.Client(timeout=60) as client:
-            res = client.post(
-                GEMINI_URL.format(model=GEMINI_MODEL),
-                params={"key": key},
-                json=body,
-            )
-            res.raise_for_status()
-            data = res.json()
-        candidates = data.get("candidates") or []
-        if not candidates:
-            return None
-        parts = candidates[0].get("content", {}).get("parts", [])
-        text = "".join(p.get("text", "") for p in parts).strip()
-        return text or None
-    except Exception:
+    data = _post_with_retry(
+        _generate_url(), params={"key": key}, json_body=body, timeout=60
+    )
+    if not data:
         return None
+    candidates = data.get("candidates") or []
+    if not candidates:
+        return None
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text = "".join(p.get("text", "") for p in parts).strip()
+    return text or None
 
 
 # --------------------------------------------------------------------------
@@ -255,7 +348,7 @@ def chat(prompt: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         "markdown": text,
         "blocks": blocks,
         "source": source,
-        "model": GEMINI_MODEL if source == "gemini" else "deterministic-tutor",
+        "model": model() if source == "gemini" else "deterministic-tutor",
         "followUps": _FOLLOWUPS["default"],
         "creditsUsed": 1,
         "latencyMs": int((time.time() - started) * 1000),
@@ -401,13 +494,12 @@ def ocr(image_bytes: bytes, mime: str) -> dict[str, Any] | None:
         ],
         "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048},
     }
+    data = _post_with_retry(
+        _generate_url(), params={"key": key}, json_body=body, timeout=90
+    )
+    if not data:
+        return None
     try:
-        with httpx.Client(timeout=90) as client:
-            res = client.post(
-                GEMINI_URL.format(model=GEMINI_MODEL), params={"key": key}, json=body
-            )
-            res.raise_for_status()
-            data = res.json()
         parts = data["candidates"][0]["content"]["parts"]
         text = "".join(p.get("text", "") for p in parts).strip()
         if not text:

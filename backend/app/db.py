@@ -2,12 +2,14 @@
 
 Relational tables follow the brief in the product spec:
 
-    users            - role, credits, subscription
+    users            - role, credits, subscription, Google link, email state
     projects         - documents, metadata, word counts, templates
     project_versions - full version history / timeline
     ingestion_logs   - OCR scans and confidence scores
     chat_messages    - research-assistant transcript per project
     assets           - uploaded figures / generated vector graphics
+    verification_codes - hashed 6-digit email codes (10 min TTL)
+    captchas         - hashed CAPTCHA answers (5 min TTL)
 """
 from __future__ import annotations
 
@@ -33,7 +35,30 @@ CREATE TABLE IF NOT EXISTS users (
     credits       INT  NOT NULL DEFAULT 20,
     institution   TEXT NOT NULL DEFAULT '',
     department    TEXT NOT NULL DEFAULT '',
-    created_at    TEXT NOT NULL
+    created_at    TEXT NOT NULL,
+    google_sub    TEXT,
+    email_verified INT NOT NULL DEFAULT 0,
+    avatar_url    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS verification_codes (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash   TEXT NOT NULL,
+    purpose     TEXT NOT NULL DEFAULT 'email_verify',
+    attempts    INT NOT NULL DEFAULT 0,
+    expires_at  TEXT NOT NULL,
+    consumed_at TEXT,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS captchas (
+    id          TEXT PRIMARY KEY,
+    answer_hash TEXT NOT NULL,
+    attempts    INT NOT NULL DEFAULT 0,
+    expires_at  TEXT NOT NULL,
+    consumed_at TEXT,
+    created_at  TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -102,6 +127,21 @@ CREATE INDEX IF NOT EXISTS idx_versions_project ON project_versions(project_id);
 CREATE INDEX IF NOT EXISTS idx_chat_project ON chat_messages(project_id);
 CREATE INDEX IF NOT EXISTS idx_assets_project ON assets(project_id);
 CREATE INDEX IF NOT EXISTS idx_logs_user ON ingestion_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_verification_user ON verification_codes(user_id);
+CREATE INDEX IF NOT EXISTS idx_captchas_expires ON captchas(expires_at);
+"""
+
+# Columns added after the original prototype schema shipped. Applied with
+# ``ALTER TABLE ... ADD COLUMN`` so an existing database keeps its rows.
+_ADDED_USER_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("google_sub", "TEXT"),
+    ("email_verified", "INT NOT NULL DEFAULT 0"),
+    ("avatar_url", "TEXT"),
+)
+
+_POST_MIGRATION = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub
+    ON users(google_sub) WHERE google_sub IS NOT NULL;
 """
 
 
@@ -113,11 +153,33 @@ def connect() -> sqlite3.Connection:
     return conn
 
 
+def _user_columns(conn: sqlite3.Connection) -> set[str]:
+    return {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Add any missing columns/tables. Idempotent; returns what it changed."""
+    applied: list[str] = []
+    present = _user_columns(conn)
+    for name, decl in _ADDED_USER_COLUMNS:
+        if name in present:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {name} {decl}")
+            applied.append(f"users.{name}")
+        except sqlite3.OperationalError as exc:  # concurrent migration
+            if "duplicate column" not in str(exc).lower():
+                raise
+    conn.executescript(_POST_MIGRATION)
+    return applied
+
+
 def init_db() -> None:
     with _lock:
         conn = connect()
         try:
             conn.executescript(SCHEMA)
+            migrate(conn)
             conn.commit()
         finally:
             conn.close()

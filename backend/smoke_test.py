@@ -1,15 +1,29 @@
-"""End-to-end API smoke test for the AI2LaTeX prototype."""
+"""End-to-end API smoke test for the AI2LaTeX prototype.
+
+Covers the real auth flow from docs/auth-contract.md: CAPTCHA -> signup ->
+emailed/dev 6-digit code -> verify-email -> session token -> project CRUD.
+The CAPTCHA answer is read through ``app.captcha.issue()`` (the API itself never
+returns it; only the hash is stored) and the verification code comes from the
+signup response's ``devCode``, which the backend includes whenever SMTP is
+unconfigured.
+"""
 from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 import time
 import zipfile
+from pathlib import Path
 
 import httpx
 
-BASE = "http://127.0.0.1:8765"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# Defaults to the dev port from run.py; override to target another instance
+# without editing this file (e.g. AI2LATEX_SMOKE_BASE=http://127.0.0.1:8799).
+BASE = os.environ.get("AI2LATEX_SMOKE_BASE", "http://127.0.0.1:8765").rstrip("/")
 results: list[tuple[str, bool, str]] = []
 
 
@@ -19,32 +33,160 @@ def check(name: str, ok: bool, detail: str = "") -> bool:
     return ok
 
 
+def solve_captcha(c: httpx.Client) -> tuple[str, str]:
+    """Fetch a fresh CAPTCHA and return ``(captchaId, answer)``.
+
+    ``captcha.issue()`` is the same helper the HTTP route uses; it returns the
+    plain answer to its caller while persisting only a salted hash. The API
+    response itself only ever carries the PNG, so this is not a test bypass.
+
+    The row must land in the database the target server opened. That is
+    ``backend/data/ai2latex.db`` by default (same default as the server); set
+    ``AI2LATEX_SMOKE_DB`` when pointing the test at an instance backed by a
+    different database file.
+    """
+    from pathlib import Path
+
+    from app import captcha, db
+
+    override = os.environ.get("AI2LATEX_SMOKE_DB")
+    if override:
+        db.DB_PATH = Path(override)
+
+    issued = captcha.issue()
+    return str(issued["id"]), str(issued["code"])
+
+
+def signup_verified(c: httpx.Client, email: str, password: str, name: str) -> dict | None:
+    """Sign up, consume the dev code, and return the verified session payload."""
+    captcha_id, answer = solve_captcha(c)
+    r = c.post(
+        "/api/auth/signup",
+        json={
+            "email": email,
+            "password": password,
+            "name": name,
+            "captchaId": captcha_id,
+            "captchaAnswer": answer,
+        },
+    )
+    if r.status_code != 200:
+        check("signup for new user", False, r.text[:120])
+        return None
+    body = r.json()
+    if not check(
+        "signup waits for verification",
+        body.get("needsVerification") is True
+        and "token" not in body
+        and body.get("pendingToken")
+        and body.get("devCode"),
+        f"devCode={'yes' if body.get('devCode') else 'no'}",
+    ):
+        return None
+    v = c.post(
+        "/api/auth/verify-email",
+        json={"pendingToken": body["pendingToken"], "code": body["devCode"]},
+    )
+    if not check("verify email issues a session", v.status_code == 200 and "token" in v.json(), v.text[:120]):
+        return None
+    return v.json()
+
+
 def main() -> int:
     c = httpx.Client(base_url=BASE, timeout=240.0)
 
     h = c.get("/api/health").json()
     check("health", h.get("ok") is True, f"ai={h.get('ai')} compiler={h.get('compiler')}")
+    auth_block = h.get("auth") or {}
+    check(
+        "health exposes auth capabilities",
+        isinstance(auth_block, dict)
+        and {"googleEnabled", "googleClientId", "emailDelivery", "captcha"} <= set(auth_block)
+        and auth_block.get("captcha") == "image",
+        json.dumps(auth_block),
+    )
+    check("health reports the live gemini model", "model" in h, f"model={h.get('model')}")
 
-    # ---- auth
+    # ---- captcha
+    cap = c.get("/api/auth/captcha").json()
+    check(
+        "captcha returns png data-uri",
+        cap.get("id", "").startswith("cap-")
+        and str(cap.get("image", "")).startswith("data:image/png;base64,")
+        and cap.get("expiresIn") == 300,
+        f"{len(cap.get('image', ''))} chars",
+    )
+    bad = c.post(
+        "/api/auth/signup",
+        json={
+            "email": f"bad{int(time.time())}@uni.edu",
+            "password": "password123",
+            "captchaId": cap["id"],
+            "captchaAnswer": "WRONG",
+        },
+    )
+    check(
+        "captcha rejects a wrong answer",
+        bad.status_code == 400 and bad.json()["detail"] == "Captcha answer is incorrect.",
+        bad.text[:80],
+    )
+
+    # ---- auth: demo shortcut is explicit and works
+    r = c.post("/api/auth/demo")
+    ok = r.status_code == 200 and r.json()["user"]["email"] == "alex@mit.edu"
+    check("demo login", ok, json.dumps(r.json().get("user", {}))[:100] if ok else r.text[:90])
+    token = r.json()["token"]
+    c.headers["Authorization"] = f"Bearer {token}"
+    me = c.get("/api/auth/me").json()["user"]
+    check(
+        "demo user is verified with a password",
+        me.get("emailVerified") is True and me.get("hasPassword") is True and "avatarUrl" in me,
+        json.dumps(me)[:110],
+    )
+
+    # ---- auth: real email login for the seeded demo account
     r = c.post("/api/auth/login", json={"email": "alex@mit.edu", "password": "research2026"})
-    check("login demo account", r.status_code == 200)
+    check("login demo account", r.status_code == 200 and "token" in r.json(), r.text[:80])
     token = r.json()["token"]
     c.headers["Authorization"] = f"Bearer {token}"
 
     r = c.post("/api/auth/login", json={"email": "alex@mit.edu", "password": "wrong"})
     check("login rejects bad password", r.status_code == 401)
 
+    # ---- signup: validation, then the full verified flow
     r = c.post("/api/auth/signup", json={"email": "bad-email", "password": "x" * 10})
     check("signup validates email", r.status_code == 400)
 
     new_email = f"tester{int(time.time())}@uni.edu"
-    r = c.post("/api/auth/signup", json={"email": new_email, "password": "password123", "name": "Test Scholar"})
-    ok = r.status_code == 200
-    check("signup creates account", ok, new_email if ok else r.text[:90])
-    new_token = r.json()["token"] if ok else None
+    verified = signup_verified(c, new_email, "password123", "Test Scholar")
+    new_token = verified["token"] if verified else None
+
+    # signup no longer returns a session token, so the unverified account cannot
+    # create projects until the code is verified — assert that.
+    if new_token:
+        r = c.get(
+            "/api/auth/me", headers={"Authorization": f"Bearer {new_token}"}
+        )
+        check(
+            "verified user can read /me",
+            r.status_code == 200 and r.json()["user"]["email"] == new_email,
+            r.text[:90],
+        )
 
     r = c.get("/api/auth/me")
     check("me returns user", r.status_code == 200 and r.json()["user"]["email"] == "alex@mit.edu")
+
+    # ---- google is disabled unless GOOGLE_CLIENT_ID is configured
+    cfg = c.get("/api/auth/google/config").json()
+    if cfg.get("enabled") is False:
+        r = c.post("/api/auth/google", json={"credential": "x"})
+        check(
+            "google returns 501 when unconfigured",
+            r.status_code == 501 and "GOOGLE_CLIENT_ID" in r.json()["detail"],
+            r.text[:90],
+        )
+    else:
+        print("SKIP  google 501 check (GOOGLE_CLIENT_ID is configured on this server)")
 
     # ---- projects
     projects = c.get("/api/projects").json()["projects"]
