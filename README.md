@@ -97,6 +97,9 @@ cd frontend && node e2e-test.cjs
 
 # design conformance: colour tokens, layout widths, typography, modals, pricing, responsive
 cd frontend && node design-test.cjs
+
+# interaction affordances: pointer cursor on clickables, text cursor in inputs
+cd frontend && node cursor-test.cjs
 ```
 
 The browser suites need Playwright's Chromium once:
@@ -105,7 +108,7 @@ The browser suites need Playwright's Chromium once:
 cd frontend && pnpm exec playwright install chromium
 ```
 
-Last recorded results: API 45/45, end-to-end 25/25 (three consecutive runs), design 51/51.
+Last recorded results: API 45/45, end-to-end 25/25, design 51/51, cursor affordances 29/29.
 
 ## Known limits of the prototype
 

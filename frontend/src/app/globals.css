@@ -79,6 +79,40 @@ body {
   color: #0f172a;
 }
 
+/* Pointer affordance -------------------------------------------------
+   Browsers give <button> an arrow cursor, which makes interactive chrome
+   feel dead. Anything clickable gets the pointing hand; disabled controls
+   keep the "not allowed" cursor so the state is visible. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+button[aria-disabled="true"],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Inputs and text areas advertise that they accept text. */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+textarea {
+  cursor: text;
+}
+
+/* Selects and file inputs open a menu/picker rather than accepting text. */
+select,
+input[type="file"] {
+  cursor: pointer;
+}
+
 /* Scrollbars ------------------------------------------------------- */
 .scroll-thin {
   scrollbar-width: thin;
