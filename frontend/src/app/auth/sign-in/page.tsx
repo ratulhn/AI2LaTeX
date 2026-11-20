@@ -4,22 +4,37 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check } from "lucide-react";
-import { AuthShell, GoogleButton, GoogleAiNote, OrDivider } from "@/components/auth-shell";
+import {
+  AuthShell,
+  GoogleAiNote,
+  OrDivider,
+  VerifyEmailStep,
+} from "@/components/auth-shell";
+import { GoogleSignIn } from "@/components/google-signin";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Checkbox } from "@/components/ui/input";
 import { useSession } from "@/components/session-provider";
 import { useToast } from "@/components/ui/toast";
+import { ApiError, api } from "@/lib/api";
+import type { EmailDelivery } from "@/lib/types";
+
+interface PendingState {
+  pendingToken: string;
+  emailDelivery: EmailDelivery;
+  devCode?: string;
+}
 
 export default function SignInPage() {
-  const { login, google, user } = useSession();
+  const { login, demoLogin, user, adopt } = useSession();
   const toast = useToast();
   const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [remember, setRemember] = React.useState(true);
   const [loading, setLoading] = React.useState(false);
-  const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [demoLoading, setDemoLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState<PendingState | null>(null);
 
   React.useEffect(() => {
     if (user) router.replace("/dashboard");
@@ -40,6 +55,17 @@ export default function SignInPage() {
     try {
       await login(email.trim(), password);
     } catch (err) {
+      // Contract §6: correct password but unverified email returns 403 with a
+      // pendingToken. That is a normal step forward, not an error — move to the
+      // verification step without a red message.
+      if (err instanceof ApiError && err.status === 403 && err.needsVerification) {
+        setPending({
+          pendingToken: err.body.pendingToken as string,
+          emailDelivery: (err.body.emailDelivery as EmailDelivery) ?? "dev",
+          devCode: typeof err.body.devCode === "string" ? err.body.devCode : undefined,
+        });
+        return;
+      }
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
       setLoading(false);
@@ -47,15 +73,45 @@ export default function SignInPage() {
   };
 
   const demo = async () => {
-    setGoogleLoading(true);
+    setDemoLoading(true);
+    setError(null);
     try {
-      await google();
+      await demoLogin();
     } catch (err) {
-      toast.error("Could not open the demo workspace", err instanceof Error ? err.message : undefined);
+      toast.error(
+        "Could not open the demo workspace",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
-      setGoogleLoading(false);
+      setDemoLoading(false);
     }
   };
+
+  // Unverified account: show the same verification step sign-up uses.
+  if (pending) {
+    return (
+      <AuthShell
+        eyebrow="Step 2 of 2 · email verification"
+        title="Verify your email"
+        subtitle="Your account exists but the email address is not verified yet. Enter the code we sent you to continue."
+      >
+        <VerifyEmailStep
+          email={email.trim()}
+          pendingToken={pending.pendingToken}
+          emailDelivery={pending.emailDelivery}
+          devCode={pending.devCode}
+          onVerified={(token, verifiedUser) => {
+            adopt(token, verifiedUser);
+            router.push("/dashboard");
+          }}
+          onChangeEmail={() => {
+            setPending(null);
+            setError(null);
+          }}
+        />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
@@ -63,7 +119,7 @@ export default function SignInPage() {
       title="Welcome back to AI2LaTeX"
       subtitle="Your notes, diagrams and documents — all in one place."
     >
-      <GoogleButton onClick={demo} label="Continue with Google" loading={googleLoading} />
+      <GoogleSignIn label="Continue with Google" />
       <GoogleAiNote />
       <OrDivider label="or sign in with email" />
 
@@ -98,7 +154,10 @@ export default function SignInPage() {
         </div>
 
         {error ? (
-          <p className="rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger">
+          <p
+            role="alert"
+            className="rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger"
+          >
             {error}
           </p>
         ) : null}
@@ -117,19 +176,41 @@ export default function SignInPage() {
         </span>
       </div>
 
+      {/* Demo access is deliberately separate from Google (contract §8). */}
       <div className="mt-4 rounded-[8px] border border-border bg-canvas px-3 py-2.5">
         <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">
-          Prototype demo account
+          Just exploring?
         </p>
-        <p className="mt-1 font-mono text-[11.5px] text-slate-mid">alex@mit.edu · research2026</p>
         <button
+          type="button"
+          onClick={demo}
+          disabled={demoLoading}
+          className="mt-1 inline-flex items-center gap-1 text-[11.5px] font-medium text-blue hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {demoLoading ? (
+            <span
+              aria-hidden
+              className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-blue/30 border-t-blue"
+            />
+          ) : (
+            <ArrowRight size={11} aria-hidden />
+          )}
+          Continue as demo scholar
+        </button>
+        <p className="mt-1 text-[10.5px] leading-relaxed text-muted">
+          Opens the shared prototype workspace — no account needed. This is not a Google sign-in.
+        </p>
+
+        <p className="mt-2.5 font-mono text-[11.5px] text-slate-mid">alex@mit.edu · research2026</p>
+        <button
+          type="button"
           onClick={() => {
             setEmail("alex@mit.edu");
             setPassword("research2026");
           }}
           className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue hover:underline"
         >
-          Fill demo credentials <ArrowRight size={10} />
+          Fill demo credentials <ArrowRight size={10} aria-hidden />
         </button>
       </div>
 

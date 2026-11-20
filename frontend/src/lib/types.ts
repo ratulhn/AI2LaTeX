@@ -111,6 +111,65 @@ export interface User {
   credits: number;
   institution: string;
   department: string;
+  /** True once the email address has been verified (or a Google account). */
+  emailVerified: boolean;
+  /** False for Google-only accounts, which cannot password-login. */
+  hasPassword: boolean;
+  avatarUrl: string | null;
+}
+
+/* -------------------------------------------------------------------------
+   Auth capability discovery (docs/auth-contract.md §1)
+   ------------------------------------------------------------------------- */
+
+export type EmailDelivery = "dev" | "smtp";
+
+export interface AuthHealth {
+  googleEnabled: boolean;
+  googleClientId: string | null;
+  emailDelivery: EmailDelivery;
+  captcha: "image";
+}
+
+export interface Health {
+  ok: boolean;
+  ai: string;
+  compiler: string;
+  model: string;
+  auth: AuthHealth;
+  time?: string;
+}
+
+/* -------------------------------------------------------------------------
+   Auth request/response shapes (docs/auth-contract.md §2–§8)
+   ------------------------------------------------------------------------- */
+
+export interface CaptchaChallenge {
+  id: string;
+  image: string;
+  expiresIn: number;
+}
+
+/** Body returned by POST /auth/signup while the account awaits verification. */
+export interface PendingVerification {
+  needsVerification: true;
+  pendingToken: string;
+  email?: string;
+  emailDelivery: EmailDelivery;
+  /** Present only when emailDelivery is "dev" (no SMTP configured). */
+  devCode?: string;
+}
+
+export interface ResendCodeResult {
+  ok: boolean;
+  emailDelivery: EmailDelivery;
+  devCode?: string;
+  expiresIn: number;
+}
+
+export interface GoogleConfig {
+  enabled: boolean;
+  clientId: string | null;
 }
 
 export interface ChatMessage {

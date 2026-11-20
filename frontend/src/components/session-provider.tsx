@@ -10,6 +10,14 @@ interface SessionValue {
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
+  /** Real Google Identity Services exchange (POST /auth/google with a credential). */
+  googleSignIn: (credential: string) => Promise<void>;
+  /** Explicit prototype demo account (POST /auth/demo) — never a Google alias. */
+  demoLogin: () => Promise<void>;
+  /**
+   * @deprecated Kept so older callers still compile. Delegates to `demoLogin()`
+   * — the old fake Google-demo login no longer exists (auth-contract §8).
+   */
   google: () => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
@@ -47,18 +55,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const signup = React.useCallback(async (email: string, password: string, name: string) => {
-    const res = await api.signup(email, password, name);
+    // Contract v2: signup never returns a session token; it returns a pending
+    // verification. Kept for type compatibility with older callers.
+    await api.signup(email, password, name);
+  }, []);
+
+  const demoLogin = React.useCallback(async () => {
+    const res = await api.demoLogin();
+    setToken(res.token);
+    setUser(res.user);
+    router.push("/dashboard");
+  }, [router]);
+
+  const googleSignIn = React.useCallback(async (credential: string) => {
+    const res = await api.googleSignIn(credential);
     setToken(res.token);
     setUser(res.user);
     router.push("/dashboard");
   }, [router]);
 
   const google = React.useCallback(async () => {
-    const res = await api.google();
-    setToken(res.token);
-    setUser(res.user);
-    router.push("/dashboard");
-  }, [router]);
+    await demoLogin();
+  }, [demoLogin]);
 
   const logout = React.useCallback(() => {
     setToken(null);
@@ -87,8 +105,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = React.useMemo(
-    () => ({ user, ready, login, signup, google, logout, refresh, setCredits, applyUser, adopt }),
-    [user, ready, login, signup, google, logout, refresh, setCredits, applyUser, adopt],
+    () => ({
+      user,
+      ready,
+      login,
+      signup,
+      googleSignIn,
+      demoLogin,
+      google,
+      logout,
+      refresh,
+      setCredits,
+      applyUser,
+      adopt,
+    }),
+    [user, ready, login, signup, googleSignIn, demoLogin, google, logout, refresh, setCredits, applyUser, adopt],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
