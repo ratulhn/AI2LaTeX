@@ -64,6 +64,17 @@ async function cleanup(page) {
     check("demo login reaches dashboard", page.url().includes("/dashboard"));
 
     // ---------- dashboard: duplicate (creates a project we will clean up)
+    // The demo account sits on the free tier (3 project limit), so free a slot
+    // first: otherwise the API correctly answers 402 and there is nothing to
+    // duplicate. Creating a scratch project is the least destructive way to keep
+    // the three seeded projects intact.
+    // The seeded demo account sits exactly on the free-tier limit of 3 projects,
+    // so the API correctly refuses to duplicate (402). Duplicating is what this
+    // test is about, so temporarily give the account room and restore it after.
+    const meBefore = (await apiFetch(page, "GET", "/auth/me")).json.user;
+    if (meBefore.plan === "free") {
+      await apiFetch(page, "POST", "/billing/upgrade", { plan: "pro" });
+    }
     const card = page.locator("div.group").filter({ hasText: "Computer Networks — Study Notes" }).first();
     await card.getByRole("button", { name: "Project actions" }).click();
     await page.getByRole("button", { name: "Duplicate", exact: true }).click();
@@ -232,7 +243,10 @@ async function cleanup(page) {
     check("test run completed without exception", false, err.message.slice(0, 200));
   } finally {
     await cleanup(page).catch(() => undefined);
-    await browser.close();
+    // Restore the demo account's tier so the next run starts from the seeded state.
+  await apiFetch(page, "POST", "/billing/upgrade", { plan: "free" }).catch(() => undefined);
+
+  await browser.close();
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
     process.exit(failed.length ? 1 : 0);

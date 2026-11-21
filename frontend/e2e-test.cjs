@@ -22,33 +22,35 @@ const check = (n, ok, d = "") => {
   const stamp = Date.now().toString().slice(-7);
   const email = `e2e${stamp}@uni.edu`;
 
-  // ---------- sign up through the UI (all three steps)
-  await page.goto(`${BASE}/auth/sign-up`, { waitUntil: "networkidle" });
-  await page.fill("#name", "E2E Scholar");
-  await page.fill("#email", email);
-  await page.fill("#password", "password123");
-  await page.locator("text=I agree to the Terms of Service").click();
-  await page.click("text=Continue · verify email");
-  await page.waitForTimeout(700);
-  check("signup step 2 (captcha) shows", await page.locator("text=Confirm you are human").isVisible());
-
-  await page.locator("text=I'm not a robot").click();
-  await page.click("text=Continue · verify email");
-  await page.waitForTimeout(1800);
-  check("signup step 3 (code) shows", await page.locator("text=Check your email").isVisible());
-  await page.screenshot({ path: `${OUT}/30-signup-verify.png` });
-
-  const codeInputs = page.locator('input[inputmode="numeric"]');
-  const digits = "204815";
-  for (let i = 0; i < 6; i += 1) await codeInputs.nth(i).fill(digits[i]);
-  await page.click("text=Verify email & create account");
+  // ---------- enter through the demo-scholar button
+  // Signup now requires a real server-generated CAPTCHA image, so an automated
+  // script cannot pass it. The auth UI flow itself is covered by auth-test.cjs
+  // (including the verification step); here we only need a session so the rest
+  // of the end-to-end journey can run.
+  await page.goto(`${BASE}/auth/sign-in`, { waitUntil: "networkidle" });
+  await page.locator("button", { hasText: /demo scholar/i }).first().click();
   await page.waitForURL("**/dashboard", { timeout: 30000 });
-  check("signup completes into dashboard", page.url().includes("/dashboard"));
-  await page.waitForTimeout(1500);
-  check("new user has empty workspace", await page.locator("text=No projects here yet").isVisible());
+  check("demo login reaches dashboard", page.url().includes("/dashboard"));
+  await page.waitForTimeout(1800);
+  check("dashboard lists seeded projects", (await page.locator('p.truncate').count()) >= 3);
   await page.screenshot({ path: `${OUT}/31-new-user-dashboard.png` });
 
   // ---------- create a project
+  // The demo account sits on the free tier, whose 3-project limit correctly
+  // blocks creation. This test needs to create a project, so lift the tier for
+  // the duration (the browser suite restores it at the end) and clean up any
+  // scratch project a previous run left behind.
+  await page.evaluate(async () => {
+    const t = localStorage.getItem("ai2latex.token");
+    const h = { Authorization: `Bearer ${t}`, "Content-Type": "application/json" };
+    await fetch("/api/billing/upgrade", { method: "POST", headers: h, body: JSON.stringify({ plan: "pro" }) });
+    const list = await (await fetch("/api/projects", { headers: h })).json();
+    for (const p of list.projects.filter((x) => /^E2E Doc/i.test(x.title))) {
+      await fetch(`/api/projects/${p.id}`, { method: "DELETE", headers: h });
+    }
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
   await page.click("text=New Document");
   await page.waitForTimeout(500);
   const title = `E2E Doc ${stamp}`;
@@ -198,6 +200,14 @@ const check = (n, ok, d = "") => {
   check("mobile landing renders", await mp.locator("text=From rough notes").isVisible());
   await mob.close();
 
+  await page.evaluate(async () => {
+    const t = localStorage.getItem("ai2latex.token");
+    await fetch("/api/billing/upgrade", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: "free" }),
+    }).catch(() => undefined);
+  });
   await browser.close();
   console.log("\nerrors:", errors.length ? errors.slice(0, 8) : "none");
   const failed = results.filter((r) => !r[1]);

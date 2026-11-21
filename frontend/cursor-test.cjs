@@ -60,7 +60,8 @@ async function cursorOf(page, locator, label) {
   await cursorOf(page, page.getByRole("button", { name: /^Download/i }), "workspace: Download is pointer");
   await cursorOf(page, page.getByRole("button", { name: /Version history/i }), "workspace: Version history is pointer");
   await cursorOf(page, page.getByRole("button", { name: /AI Polish/i }), "workspace: AI Polish is pointer");
-  await cursorOf(page, page.getByRole("button", { name: /IEEE Conference|IEEE Format/i }), "workspace: format menu is pointer");
+  // The format preset button label follows the project template, so match any preset name.
+await cursorOf(page, page.locator("button", { hasText: /IEEE Conference|ACM SIGCONF|Thesis \/ Report|Study Notes/ }).first(), "workspace: format menu is pointer");
   await cursorOf(page, page.locator('button[aria-label="Insert math"]'), "workspace: math toolbar button is pointer");
   await cursorOf(page, page.locator('button[aria-label="Insert table"]'), "workspace: table toolbar button is pointer");
   await cursorOf(page, page.locator('button[aria-label="Insert image"]'), "workspace: image toolbar button is pointer");

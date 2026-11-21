@@ -60,16 +60,33 @@ For development with hot reload, run `pnpm exec next dev --port 3100` instead. T
 | --- | --- |
 | `alex@mit.edu` | `research2026` |
 
-Sign-up asks for a verification code. In the prototype, the code is always **`204815`** and no email is sent.
+The sign-in page also has a **Continue as demo scholar** button (`POST /api/auth/demo`) for one-click access.
+
+**Accounts you create** go through real verification: the CAPTCHA image is generated server-side, and the 6-digit code is shown on screen only because no SMTP server is configured (`emailDelivery: "dev"`). Configure `SMTP_HOST` in `backend/.env` and codes are emailed instead, with no code in the response.
+
+## Configuration
+
+Copy `backend/.env.example` to `backend/.env`. Nothing is required to run; each key enables a real capability:
+
+| Variable | Effect when set |
+| --- | --- |
+| `GEMINI_API_KEY` | Real AI answers, polish and OCR instead of the offline tutor |
+| `GEMINI_MODEL` | Model id (default `gemini-3.5-flash-lite`) |
+| `GOOGLE_CLIENT_ID` | Enables the Google sign-in button; otherwise it renders disabled |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` | Emails verification codes instead of returning them |
+| `AI2LATEX_SECRET` | Session signing key; otherwise a private one is generated in `backend/data/` |
+| `AI2LATEX_DEMO_LOGIN` | `0` hides the demo-scholar button |
+
+`backend/.env` is git-ignored. Never commit a key.
 
 ## What is implemented
 
 | Area | Where | Notes |
 | --- | --- | --- |
 | Landing, pricing | `frontend/src/app/page.tsx`, `pricing/` | Matches the reference hero and feature sections |
-| Sign in / sign up | `frontend/src/app/auth/` | Captcha step, 6-digit verification, demo account |
-| Dashboard | `frontend/src/app/dashboard/` | Create & import cards, filters, search, free-tier limit (3 projects) |
-| Visual editor | `workspace/[id]/` + `components/workspace/visual-editor.tsx` | Editable headings, paragraphs, bullets, equations, tables, figures; `/` slash commands; inline `$math$`, `**bold**` |
+| Sign in / sign up | `frontend/src/app/auth/` | Self-hosted CAPTCHA, 6-digit email verification, real Google ID-token flow, demo access |
+| Dashboard | `frontend/src/app/dashboard/` | Create & import cards, filters, search; per-project Rename / Duplicate / Export / Download / Delete |
+| Visual editor | `workspace/[id]/` + `components/workspace/visual-editor.tsx` | Editable headings, paragraphs, bullets, equations, tables, figures; `/` slash commands; inline `$math$`, `**bold**`; toolbar for headings, bold, italic, lists, math, table, figure and AI actions |
 | Source editor | `components/workspace/source-editor.tsx` | Syntax-coloured LaTeX, line gutter, compile & save |
 | Split PDF view | `components/workspace/pdf-preview.tsx` | Source on the left, compiled PDF on the right |
 | AI chat | `components/workspace/chat-pane.tsx` | Answers with tables and equations; "Add to Document" |
@@ -78,29 +95,57 @@ Sign-up asks for a verification code. In the prototype, the code is always **`20
 | AI polish diff | `components/modal/polish.tsx` | Before/after cards, reject per change, accept to apply |
 | Version history | `components/modal/versions.tsx` | Snapshots on every save; restore keeps current work |
 | Typography & accent | `components/modal/typography.tsx` | Font, size, four accent themes, applied to PDF and LaTeX |
-| Upgrade | `components/modal/upgrade.tsx` | Three plans; switches plan instantly in the prototype |
+| Upgrade | `components/modal/upgrade.tsx` | Three plans; self-service switching is disabled unless explicitly enabled |
 | Exports | `Download` menu | PDF, `.tex` + figures (zip), `.docx`, Markdown |
 
-Backend: SQLite tables `users`, `projects`, `project_versions`, `ingestion_logs`, `chat_messages`, `assets`. Code is in `backend/app/`.
+Backend: SQLite tables `users`, `projects`, `project_versions`, `ingestion_logs`, `chat_messages`, `assets`, `verification_codes`, `captchas`. Code is in `backend/app/`.
+
+## Security notes
+
+This is a prototype, but the obvious holes are closed:
+
+- Session tokens are HMAC-signed with a secret that is **not** in the repo (`AI2LATEX_SECRET`, or a generated file under `backend/data/`).
+- Signing up with an existing unverified email requires that account's password, so an address alone cannot be used to take it over.
+- Every project, version, chat, asset and PDF route checks ownership (404 for other users' ids).
+- AI credits are metered server-side and refunded when the model call fails.
+- Uploaded SVG is stripped of script vectors and served allow-listed with `nosniff` and a sandboxing CSP.
+- Self-service plan upgrades are refused unless `AI2LATEX_ALLOW_SELF_UPGRADE=1`; wire Stripe before enabling.
+
+Still open before a public deployment: login rate limiting, token revocation on logout, `HttpOnly` cookies instead of `localStorage`, and moving SQLite to Postgres.
 
 ## Verification
 
-The test suites need both servers running (`backend/run.py` and the frontend production build).
+The browser suites need both servers running (`backend/run.py` and the frontend production build), plus Playwright's Chromium once:
 
 ```bash
-# backend API: 45 checks (auth, projects, compile, exports, versions, AI, OCR, limits, isolation)
-cd backend && python smoke_test.py
+cd frontend && pnpm exec playwright install chromium
+```
 
-# browser end-to-end: sign-up, editing, equation/table insert, reload persistence,
-# compile, split view, accent change, chat, exports, mobile layout
+```bash
+# backend API regression suite (auth, ownership, projects) — no network needed
+cd backend && python -m pytest tests -q
+
+# live API checks: real Gemini chat/polish/OCR, captcha, demo login, Google 501
+cd backend && python live_verify.py
+
+# auth UI: captcha image + refresh, wrong-captcha error, verification step, dev code
+cd frontend && node auth-test.cjs
+
+# dashboard menu actions, toolbar, paragraph editing, slash menu, outline,
+# format preset, chat round trip, Ctrl+Enter compile, console errors
+cd frontend && node workspace-test.cjs
+
+# end-to-end: sign-up, editing, reload persistence, compile, split view, exports, mobile
 cd frontend && node e2e-test.cjs
 
-# design conformance: colour tokens, layout widths, typography, modals, pricing, responsive
+# design conformance: colour tokens, layout widths, typography, modals, responsive
 cd frontend && node design-test.cjs
 
 # interaction affordances: pointer cursor on clickables, text cursor in inputs
 cd frontend && node cursor-test.cjs
 ```
+
+Last recorded results: pytest 58/58 · live API 23/23 · auth UI 33/33 · workspace UI 24/24 · end-to-end 25/25 · design 51/51 · cursor 29/29.
 
 The browser suites need Playwright's Chromium once:
 
