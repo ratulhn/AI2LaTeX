@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Checkbox } from "@/components/ui/input";
 import { useSession } from "@/components/session-provider";
 import { useToast } from "@/components/ui/toast";
-import { ApiError, api } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import type { EmailDelivery } from "@/lib/types";
 
 interface PendingState {
@@ -148,7 +148,7 @@ export default function SignInPage() {
 
         <div className="flex items-center justify-between">
           <Checkbox checked={remember} onChange={setRemember} label="Remember this device for 30 days" />
-          <button type="button" className="text-[11.5px] font-medium text-blue hover:underline">
+          <button type="button" className="text-[14px] font-medium text-blue hover:underline">
             Forgot password?
           </button>
         </div>
@@ -156,7 +156,7 @@ export default function SignInPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger"
+            className="rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[14px] text-danger"
           >
             {error}
           </p>
@@ -167,7 +167,7 @@ export default function SignInPage() {
         </Button>
       </form>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-muted">
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted">
         <span className="inline-flex items-center gap-1">
           <Check size={10} className="text-success" /> No credit card required
         </span>
@@ -178,14 +178,14 @@ export default function SignInPage() {
 
       {/* Demo access is deliberately separate from Google (contract §8). */}
       <div className="mt-4 rounded-[8px] border border-border bg-canvas px-3 py-2.5">
-        <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
           Just exploring?
         </p>
         <button
           type="button"
           onClick={demo}
           disabled={demoLoading}
-          className="mt-1 inline-flex items-center gap-1 text-[11.5px] font-medium text-blue hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-1 inline-flex items-center gap-1 text-[14px] font-medium text-blue hover:underline disabled:cursor-not-allowed disabled:opacity-60"
         >
           {demoLoading ? (
             <span
@@ -197,30 +197,30 @@ export default function SignInPage() {
           )}
           Continue as demo scholar
         </button>
-        <p className="mt-1 text-[10.5px] leading-relaxed text-muted">
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">
           Opens the shared prototype workspace — no account needed. This is not a Google sign-in.
         </p>
 
-        <p className="mt-2.5 font-mono text-[11.5px] text-slate-mid">alex@mit.edu · research2026</p>
+        <p className="mt-2.5 font-mono text-[14px] text-slate-mid">alex@mit.edu · research2026</p>
         <button
           type="button"
           onClick={() => {
             setEmail("alex@mit.edu");
             setPassword("research2026");
           }}
-          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-blue hover:underline"
+          className="mt-1.5 inline-flex items-center gap-1 text-[13.5px] font-medium text-blue hover:underline"
         >
           Fill demo credentials <ArrowRight size={10} aria-hidden />
         </button>
       </div>
 
-      <p className="mt-4 text-center text-[11.5px] text-muted">
+      <p className="mt-4 text-center text-[14px] text-muted">
         Don&apos;t have an account?{" "}
         <Link href="/auth/sign-up" className="font-medium text-blue hover:underline">
           Sign up for free
         </Link>
       </p>
-      <p className="mt-3 text-center text-[10px] leading-relaxed text-muted">
+      <p className="mt-3 text-center text-[12.5px] leading-relaxed text-muted">
         By continuing, you agree to our Terms of Service and Privacy Policy.
       </p>
     </AuthShell>

@@ -44,9 +44,15 @@ export function Captcha({ onChange, error, disabled, clearSignal }: CaptchaProps
   const [imageBroken, setImageBroken] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const requestTicket = React.useRef(0);
-
+  // Mirror of `challenge` so async callbacks always read the current id.
+  const challengeRef = React.useRef<CaptchaChallenge | null>(null);
   // Keep the latest callback without making it an effect dependency.
   const onChangeRef = React.useRef(onChange);
+
+  React.useEffect(() => {
+    challengeRef.current = challenge;
+  }, [challenge]);
+
   React.useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -72,27 +78,38 @@ export function Captcha({ onChange, error, disabled, clearSignal }: CaptchaProps
     }
   }, []);
 
-  React.useEffect(() => {
-    void load();
+  // Fetching is an external-system sync, not derived state: start it on mount
+  // and refresh it on demand. `queueMicrotask` keeps the fetch (and its loading
+  // state) out of the effect body itself, which avoids cascading renders.
+  const scheduleLoad = React.useCallback(() => {
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
+
+  React.useEffect(() => {
+    scheduleLoad();
+  }, [scheduleLoad]);
 
   // Auto-refresh exactly once per distinct "expired" error.
   const lastHandledError = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (!error || error === lastHandledError.current) return;
     lastHandledError.current = error;
-    if (/expire/i.test(error)) void load();
-  }, [error, load]);
+    if (/expire/i.test(error)) scheduleLoad();
+  }, [error, scheduleLoad]);
 
   // Parent asked to clear the typed answer after a rejected attempt.
   const clearedSignal = React.useRef(0);
   React.useEffect(() => {
     if (!clearSignal || clearSignal === clearedSignal.current) return;
     clearedSignal.current = clearSignal;
-    setAnswer("");
-    onChangeRef.current?.({ captchaId: challenge?.id ?? null, answer: "" });
-    inputRef.current?.focus();
-  }, [clearSignal, challenge]);
+    queueMicrotask(() => {
+      setAnswer("");
+      onChangeRef.current?.({ captchaId: challengeRef.current?.id ?? null, answer: "" });
+      inputRef.current?.focus();
+    });
+  }, [clearSignal]);
 
   const updateAnswer = (next: string) => {
     setAnswer(next);
@@ -106,10 +123,10 @@ export function Captcha({ onChange, error, disabled, clearSignal }: CaptchaProps
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <label htmlFor="captcha-answer" className="text-[12.5px] font-medium text-slate-mid">
+        <label htmlFor="captcha-answer" className="text-[15px] font-medium text-slate-mid">
           CAPTCHA
         </label>
-        <span className="text-[11px] text-muted">5 characters</span>
+        <span className="text-[13.5px] text-muted">5 characters</span>
       </div>
 
       <div className="flex items-start gap-2">
@@ -136,7 +153,7 @@ export function Captcha({ onChange, error, disabled, clearSignal }: CaptchaProps
                   className="h-4 w-4 animate-spin rounded-full border-[1.8px] border-slate-300 border-t-ink"
                 />
               ) : (
-                <span className="flex flex-col items-center gap-1 text-[10px]">
+                <span className="flex flex-col items-center gap-1 text-[12.5px]">
                   <ImageOff size={14} aria-hidden />
                   {imageBroken ? "Image failed" : "Unavailable"}
                 </span>
@@ -190,7 +207,7 @@ export function Captcha({ onChange, error, disabled, clearSignal }: CaptchaProps
         className="mt-2 font-mono uppercase tracking-[0.18em]"
       />
 
-      <p id={hintId} className="mt-1 text-[10.5px] text-muted">
+      <p id={hintId} className="mt-1 text-[13px] text-muted">
         Not case-sensitive. Expires after 5 minutes.
       </p>
 
@@ -198,12 +215,12 @@ export function Captcha({ onChange, error, disabled, clearSignal }: CaptchaProps
         <p
           id={messageId}
           role="alert"
-          className="mt-1.5 rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger"
+          className="mt-1.5 rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[14px] text-danger"
         >
           {error}
         </p>
       ) : loadError ? (
-        <p id={messageId} role="alert" className="mt-1.5 text-[11.5px] text-danger">
+        <p id={messageId} role="alert" className="mt-1.5 text-[14px] text-danger">
           {loadError}{" "}
           <button
             type="button"

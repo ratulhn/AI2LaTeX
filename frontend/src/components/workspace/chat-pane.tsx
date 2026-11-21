@@ -29,11 +29,11 @@ const SUGGESTIONS = [
 function MarkdownLite({ markdown }: { markdown: string }) {
   const blocks = React.useMemo(() => parseMarkdown(markdown), [markdown]);
   return (
-    <div className="space-y-2 text-[12.5px] leading-relaxed text-[#1e293b]">
+    <div className="space-y-2 text-[15px] leading-relaxed text-[#1e293b]">
       {blocks.map((b, i) => {
         if (b.kind === "h") {
           return (
-            <p key={i} className="pt-1 text-[12px] font-semibold uppercase tracking-[0.05em] text-ink">
+            <p key={i} className="pt-1 text-[14.5px] font-semibold uppercase tracking-[0.05em] text-ink">
               {b.text}
             </p>
           );
@@ -65,7 +65,7 @@ function MarkdownLite({ markdown }: { markdown: string }) {
         }
         return (
           <div key={i} className="overflow-x-auto rounded-[6px] border border-border">
-            <table className="w-full text-left text-[11.5px]">
+            <table className="w-full text-left text-[14px]">
               <thead className="bg-[#f8fafc]">
                 <tr>
                   {b.rows[0]?.map((c, k) => (
@@ -177,7 +177,7 @@ function parseMarkdown(md: string): MdBlock[] {
 
 function AiMark() {
   return (
-    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink text-[10px] font-semibold text-white">
+    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-ink text-[12.5px] font-semibold text-white">
       Σ
     </span>
   );
@@ -196,6 +196,7 @@ export function ChatPane({
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [added, setAdded] = React.useState<Record<string, boolean>>({});
+  const [addingId, setAddingId] = React.useState<string | null>(null);
   const [ingesting, setIngesting] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -252,7 +253,19 @@ export function ChatPane({
       onCreditsChange(res.creditsRemaining);
       scrollToEnd();
     } catch (err) {
-      toast.error("AI request failed", err instanceof Error ? err.message : undefined);
+      const message = err instanceof Error ? err.message : "The assistant is unavailable right now.";
+      toast.error("AI request failed", message);
+      setMessages((m) => [
+        ...m,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: `I could not answer that: ${message}`,
+          blocks: [],
+          source: "error",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
       setMessages((m) => m.filter((x) => x.id !== optimistic.id));
     } finally {
       setBusy(false);
@@ -260,6 +273,8 @@ export function ChatPane({
   };
 
   const addToDocument = async (msg: ChatMessage) => {
+    if (addingId) return;
+    setAddingId(msg.id);
     try {
       const incoming: Block[] = msg.blocks.map((b) => ({ ...b, id: `blk-${Math.random().toString(36).slice(2, 10)}` }));
       if (incoming.length === 0) {
@@ -274,7 +289,9 @@ export function ChatPane({
       setAdded((a) => ({ ...a, [msg.id]: true }));
       toast.success("Added to your document", `${res.added} block${res.added === 1 ? "" : "s"} appended`);
     } catch (err) {
-      toast.error("Could not add to document", err instanceof Error ? err.message : undefined);
+      toast.error("Could not add to document", err instanceof Error ? err.message : "Try again in a moment.");
+    } finally {
+      setAddingId(null);
     }
   };
 
@@ -311,7 +328,19 @@ export function ChatPane({
       );
       scrollToEnd();
     } catch (err) {
-      toast.error("OCR failed", err instanceof Error ? err.message : undefined);
+      const message = err instanceof Error ? err.message : "OCR is unavailable right now.";
+      toast.error("OCR failed", message);
+      setMessages((m) => [
+        ...m,
+        {
+          id: `ocr-err-${Date.now()}`,
+          role: "assistant",
+          content: `The scan could not be read: ${message}`,
+          blocks: [],
+          source: "error",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setIngesting(false);
       setUploading(false);
@@ -322,16 +351,16 @@ export function ChatPane({
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div>
-          <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-ink">
+          <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
             <Sparkles size={12} className="text-ai" />
             Research Assistant
           </p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-muted">
+          <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
             <span className="h-[5px] w-[5px] rounded-full bg-success" />
             Connected via Google AI
           </p>
         </div>
-        <span className="rounded-[999px] border border-border bg-canvas px-2 py-[3px] text-[10px] font-medium text-slate-mid">
+        <span className="rounded-[999px] border border-border bg-canvas px-2 py-[3px] text-[12.5px] font-medium text-slate-mid">
           {project.blocks.length} blocks
         </span>
       </div>
@@ -339,8 +368,8 @@ export function ChatPane({
       <div ref={scrollRef} className="scroll-thin min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {messages.length === 0 ? (
           <div className="rounded-[8px] border border-dashed border-border bg-canvas/60 p-3">
-            <p className="text-[12px] font-medium text-ink">Ask anything about your research.</p>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
+            <p className="text-[14.5px] font-medium text-ink">Ask anything about your research.</p>
+            <p className="mt-1 text-[14px] leading-relaxed text-muted">
               Answers arrive with tables, equations and citations intact. Add only the part you need
               to the document.
             </p>
@@ -349,7 +378,7 @@ export function ChatPane({
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="rounded-[999px] border border-border bg-white px-2.5 py-1 text-[11px] text-slate-mid hover:border-blue hover:text-blue"
+                  className="rounded-[999px] border border-border bg-white px-2.5 py-1 text-[13.5px] text-slate-mid hover:border-blue hover:text-blue"
                 >
                   {s}
                 </button>
@@ -361,7 +390,7 @@ export function ChatPane({
         {messages.map((msg) =>
           msg.role === "user" ? (
             <div key={msg.id} className="flex justify-end">
-              <div className="max-w-[85%] rounded-[10px] rounded-br-[3px] bg-ink px-3 py-2 text-[12.5px] leading-relaxed text-white">
+              <div className="max-w-[85%] rounded-[10px] rounded-br-[3px] bg-ink px-3 py-2 text-[15px] leading-relaxed text-white">
                 {msg.content}
               </div>
             </div>
@@ -369,11 +398,11 @@ export function ChatPane({
             <div key={msg.id} className="animate-fade-up">
               <div className="mb-1 flex items-center gap-1.5">
                 <AiMark />
-                <span className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted">
+                <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-muted">
                   {msg.source === "gemini" ? "Academic response" : "Academic response"}
                 </span>
                 {msg.source ? (
-                  <span className="rounded-[3px] bg-slate-soft px-1 py-[1px] font-mono text-[9px] text-muted">
+                  <span className="rounded-[3px] bg-slate-soft px-1 py-[1px] font-mono text-[12px] text-muted">
                     {msg.source}
                   </span>
                 ) : null}
@@ -383,18 +412,24 @@ export function ChatPane({
                 <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border pt-2">
                   <button
                     onClick={() => addToDocument(msg)}
-                    disabled={added[msg.id]}
+                    disabled={added[msg.id] || addingId === msg.id}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-[11.5px] font-medium transition-colors",
+                      "inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1 text-[14px] font-medium transition-colors",
                       added[msg.id]
                         ? "bg-success-soft text-success-deep"
-                        : "bg-ai text-white hover:bg-[#6d28d9]",
+                        : "bg-ai text-white hover:bg-[#6d28d9] disabled:opacity-60",
                     )}
                   >
-                    {added[msg.id] ? <Check size={11} /> : <Plus size={11} />}
+                    {addingId === msg.id ? (
+                      <Loader2 size={11} className="animate-spin" />
+                    ) : added[msg.id] ? (
+                      <Check size={11} />
+                    ) : (
+                      <Plus size={11} />
+                    )}
                     {added[msg.id] ? "Added to document" : "Add to Document"}
                   </button>
-                  <span className="font-mono text-[10px] text-muted">1 credit · ~2.4s</span>
+                  <span className="font-mono text-[12.5px] text-muted">1 credit · ~2.4s</span>
                 </div>
               </div>
             </div>
@@ -403,7 +438,7 @@ export function ChatPane({
 
         {busy ? (
           <div className="rounded-[10px] border border-border bg-white p-3">
-            <div className="flex items-center gap-2 text-[12px] text-muted">
+            <div className="flex items-center gap-2 text-[14.5px] text-muted">
               <Loader2 size={13} className="animate-spin text-ai" />
               Reading your document and drafting an academic answer…
             </div>
@@ -423,7 +458,7 @@ export function ChatPane({
               key={s}
               onClick={() => send(s)}
               disabled={busy}
-              className="rounded-[999px] border border-border bg-white px-2 py-[3px] text-[10.5px] text-slate-mid transition-colors hover:border-blue hover:text-blue disabled:opacity-50"
+              className="rounded-[999px] border border-border bg-white px-2 py-[3px] text-[13px] text-slate-mid transition-colors hover:border-blue hover:text-blue disabled:opacity-50"
             >
               {s}
             </button>
@@ -441,7 +476,7 @@ export function ChatPane({
             }}
             rows={2}
             placeholder="Ask a question or upload your notes…"
-            className="w-full resize-none border-0 bg-transparent px-3 pt-2 text-[12.5px] outline-none placeholder:text-muted/80"
+            className="w-full resize-none border-0 bg-transparent px-3 pt-2 text-[15px] outline-none placeholder:text-muted/80"
           />
           <div className="flex items-center justify-between px-2 pb-1.5">
             <div className="flex items-center gap-0.5">
@@ -461,7 +496,7 @@ export function ChatPane({
               >
                 <FileUp size={12} />
               </button>
-              <span className="ml-1 text-[10px] text-muted">AI can make mistakes. Verify claims.</span>
+              <span className="ml-1 text-[12.5px] text-muted">AI can make mistakes. Verify claims.</span>
             </div>
             <Button
               size="sm"

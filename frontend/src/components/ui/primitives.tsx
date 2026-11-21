@@ -29,7 +29,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[999px] border px-2 py-[3px] text-[10.5px] font-medium leading-none",
+        "inline-flex items-center gap-1.5 rounded-[999px] border px-2 py-[3px] text-[13px] font-medium leading-none",
         TONES[tone],
         className,
       )}
@@ -85,7 +85,7 @@ export function SectionTitle({
 }) {
   return (
     <div className={cn("mb-3 flex items-center justify-between", className)}>
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</h3>
+      <h3 className="text-[13.5px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</h3>
       {action}
     </div>
   );
@@ -93,7 +93,7 @@ export function SectionTitle({
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded-[4px] border border-border bg-slate-soft px-1.5 py-[1px] font-mono text-[10.5px] text-slate-mid">
+    <kbd className="rounded-[4px] border border-border bg-slate-soft px-1.5 py-[1px] font-mono text-[13px] text-slate-mid">
       {children}
     </kbd>
   );
@@ -117,8 +117,8 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-border bg-white/60 px-6 py-10 text-center">
       {icon ? <div className="mb-3 text-watermark">{icon}</div> : null}
-      <p className="text-[13.5px] font-medium text-ink">{title}</p>
-      {description ? <p className="mt-1 max-w-sm text-[12.5px] leading-relaxed text-muted">{description}</p> : null}
+      <p className="text-[16px] font-medium text-ink">{title}</p>
+      {description ? <p className="mt-1 max-w-sm text-[15px] leading-relaxed text-muted">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
@@ -155,7 +155,7 @@ export function Tabs<T extends string>({
             onClick={() => onChange(opt.value)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-[6px] font-medium transition-colors focus-ring",
-              size === "sm" ? "h-7 px-2.5 text-[11.5px]" : "h-8 px-3 text-[12.5px]",
+              size === "sm" ? "h-7 px-2.5 text-[14px]" : "h-8 px-3 text-[15px]",
               active
                 ? "bg-blue-soft text-blue shadow-[inset_0_0_0_1px_rgba(37,99,235,0.12)]"
                 : "text-slate-mid hover:bg-slate-soft hover:text-ink",

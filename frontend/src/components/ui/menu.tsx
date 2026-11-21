@@ -70,7 +70,7 @@ export function MenuItem({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[12.5px] transition-colors",
+        "flex w-full items-center gap-2.5 px-3 py-[7px] text-left text-[15px] transition-colors",
         disabled
           ? "cursor-not-allowed text-muted/60"
           : danger
@@ -80,14 +80,14 @@ export function MenuItem({
     >
       {icon ? <span className="shrink-0 text-current opacity-80">{icon}</span> : null}
       <span className="flex-1 truncate">{children}</span>
-      {hint ? <span className="text-[10.5px] text-muted">{hint}</span> : null}
+      {hint ? <span className="text-[13px] text-muted">{hint}</span> : null}
     </button>
   );
 }
 
 export function MenuLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted">
+    <div className="px-3 pb-1 pt-2 text-[12.5px] font-semibold uppercase tracking-[0.09em] text-muted">
       {children}
     </div>
   );
@@ -101,7 +101,7 @@ export function Tooltip({ label, children }: { label: string; children: React.Re
   return (
     <span className="group relative inline-flex">
       {children}
-      <span className="pointer-events-none absolute -top-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-[5px] bg-ink px-2 py-1 text-[10.5px] font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+      <span className="pointer-events-none absolute -top-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-[5px] bg-ink px-2 py-1 text-[13px] font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100">
         {label}
       </span>
     </span>

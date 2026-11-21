@@ -12,11 +12,11 @@ export default function NotFound() {
         <div className="mb-6 flex justify-center">
           <Logo size={30} />
         </div>
-        <p className="text-[10.5px] font-semibold uppercase tracking-[0.11em] text-muted">404</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.11em] text-muted">404</p>
         <h1 className="mt-1.5 text-[22px] font-semibold tracking-[-0.015em] text-ink">
           This page is not in the document
         </h1>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
+        <p className="mt-2 text-[15px] leading-relaxed text-muted">
           The link may be out of date, or the project was deleted.
         </p>
         <div className="mt-5 flex justify-center gap-2">

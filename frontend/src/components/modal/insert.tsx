@@ -37,7 +37,7 @@ export function EquationModal({
       description="Type LaTeX. The preview is live and the block stays editable."
       footer={
         <>
-          <span className="text-[11px] text-muted">Rendered with KaTeX</span>
+          <span className="text-[13.5px] text-muted">Rendered with KaTeX</span>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>
               Cancel
@@ -57,7 +57,7 @@ export function EquationModal({
         onChange={(e) => setLatex(e.target.value)}
         rows={3}
         spellCheck={false}
-        className="code-editor w-full resize-none rounded-[6px] border border-border bg-white px-2.5 py-2 text-[12.5px] text-ink outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
+        className="code-editor w-full resize-none rounded-[6px] border border-border bg-white px-2.5 py-2 text-[15px] text-ink outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
       />
       <div className="mt-2 flex flex-wrap gap-1">
         {EQUATION_PRESETS.map((p) => (
@@ -65,7 +65,7 @@ export function EquationModal({
             key={p.label}
             onClick={() => setLatex(p.latex)}
             className={cn(
-              "rounded-[999px] border border-border bg-white px-2 py-[3px] text-[10.5px] text-slate-mid hover:border-blue hover:text-blue",
+              "rounded-[999px] border border-border bg-white px-2 py-[3px] text-[13px] text-slate-mid hover:border-blue hover:text-blue",
               latex === p.latex && "border-blue bg-blue-soft text-blue",
             )}
           >
@@ -120,7 +120,7 @@ export function TableModal({
       description="Booktabs-style rules, editable cells, one caption."
       footer={
         <>
-          <span className="text-[11px] text-muted">
+          <span className="text-[13.5px] text-muted">
             {columns.length} columns · {rows.length} rows
           </span>
           <div className="flex gap-2">
@@ -134,26 +134,26 @@ export function TableModal({
     >
       <div className="mb-2 flex items-end gap-2">
         <div className="flex-1">
-          <p className="mb-1 text-[12px] font-medium text-slate-mid">Caption</p>
+          <p className="mb-1 text-[14.5px] font-medium text-slate-mid">Caption</p>
           <Input value={caption} onChange={(e) => setCaption(e.target.value)} />
         </div>
         <div className="flex gap-1">
           <button
             onClick={() => resize(columns.length, rows.length + 1)}
-            className="h-9 rounded-[6px] border border-border bg-white px-2 text-[11.5px] text-slate-mid hover:border-blue hover:text-blue"
+            className="h-9 rounded-[6px] border border-border bg-white px-2 text-[14px] text-slate-mid hover:border-blue hover:text-blue"
           >
             + Row
           </button>
           <button
             onClick={() => resize(columns.length + 1, rows.length)}
-            className="h-9 rounded-[6px] border border-border bg-white px-2 text-[11.5px] text-slate-mid hover:border-blue hover:text-blue"
+            className="h-9 rounded-[6px] border border-border bg-white px-2 text-[14px] text-slate-mid hover:border-blue hover:text-blue"
           >
             + Col
           </button>
         </div>
       </div>
       <div className="overflow-x-auto rounded-[6px] border border-border">
-        <table className="w-full text-[12px]">
+        <table className="w-full text-[14.5px]">
           <thead className="bg-canvas">
             <tr>
               {columns.map((c, i) => (

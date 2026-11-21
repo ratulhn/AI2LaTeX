@@ -206,8 +206,18 @@ def signup(body: SignupBody) -> dict[str, Any]:
         if existing:
             if int(existing["email_verified"] or 0):
                 raise HTTPException(409, "That email already has a workspace. Sign in instead.")
-            # Unverified: resend a code and return the same body. Never reveal
-            # whether the supplied password matched the pending account.
+            # An unverified account already exists. Only the person who owns it can
+            # restart verification, so the password must match. Without this check,
+            # knowing an address alone was enough to obtain a pending token and
+            # (in dev delivery) the code, i.e. full account takeover.
+            if not existing["password_hash"] or not security.verify_password(
+                body.password, existing["password_hash"]
+            ):
+                raise HTTPException(
+                    401,
+                    "An account with this email is already awaiting verification. "
+                    "Sign in to finish verifying it.",
+                )
             return _pending_response(dict(existing), conn)
 
         uid = "usr-" + uuid.uuid4().hex[:10]
@@ -564,6 +574,7 @@ class UpdateProjectBody(BaseModel):
     blocks: list[dict[str, Any]] | None = None
     settings: dict[str, Any] | None = None
     latexOverride: str | None = None
+    clearLatexOverride: bool = False
     snapshotLabel: str | None = None
 
 
@@ -586,9 +597,17 @@ def update_project(
         settings = (
             body.settings if body.settings is not None else json.loads(row["settings"])
         )
-        override = (
-            body.latexOverride if body.latexOverride is not None else row["latex_override"]
+        # A source-edited LaTeX override freezes the PDF. Any canvas/settings change
+        # supersedes it so the preset, typography and canvas edits reach the PDF;
+        # Compile & Save from source sets it explicitly via latexOverride.
+        override = row["latex_override"]
+        if body.latexOverride is not None:
+            override = body.latexOverride
+        content_changed = any(
+            v is not None for v in (body.title, body.kind, body.abstract, body.blocks, body.settings)
         )
+        if body.clearLatexOverride or content_changed:
+            override = None
         words = latex.count_words(blocks, abstract)
 
         conn.execute(
@@ -641,11 +660,108 @@ def update_project(
 def delete_project(pid: str, user: dict = Depends(current_user)) -> dict[str, bool]:
     conn = db.connect()
     try:
-        conn.execute("DELETE FROM projects WHERE id=? AND user_id=?", (pid, user["id"]))
+        cur = conn.execute("DELETE FROM projects WHERE id=? AND user_id=?", (pid, user["id"]))
         conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Project not found.")
     finally:
         conn.close()
     return {"ok": True}
+
+
+class DuplicateProjectBody(BaseModel):
+    title: str | None = None
+
+
+@app.post("/api/projects/{pid}/duplicate")
+def duplicate_project(
+    pid: str, body: DuplicateProjectBody | None = None, user: dict = Depends(current_user)
+) -> dict[str, Any]:
+    """Copy a project (blocks, settings, abstract, assets) into a new project."""
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            "SELECT * FROM projects WHERE id=? AND user_id=?", (pid, user["id"])
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "Project not found.")
+        count = conn.execute(
+            "SELECT COUNT(*) c FROM projects WHERE user_id=?", (user["id"],)
+        ).fetchone()["c"]
+        if user["plan"] == "free" and count >= 3:
+            raise HTTPException(
+                402,
+                "You have used all 3 free projects. Upgrade to Pro for an unlimited workspace.",
+            )
+        new_title = (body.title.strip() if body and body.title else "") or f"{row['title']} (copy)"
+        new_id = "prj-" + uuid.uuid4().hex[:10]
+        blocks = json.loads(row["blocks"])
+        settings = json.loads(row["settings"])
+        stamp = now_iso()
+        conn.execute(
+            "INSERT INTO projects (id,user_id,title,kind,template,abstract,author_note,blocks,settings,"
+            "latex_override,word_count,page_count,created_at,updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                new_id,
+                user["id"],
+                new_title[:200],
+                row["kind"],
+                row["template"],
+                row["abstract"],
+                row["author_note"],
+                json.dumps(blocks, ensure_ascii=False),
+                json.dumps(settings),
+                None,
+                row["word_count"],
+                row["page_count"],
+                stamp,
+                stamp,
+            ),
+        )
+        for asset in conn.execute(
+            "SELECT name,mime,kind,data,caption,width FROM assets WHERE project_id=?", (pid,)
+        ).fetchall():
+            conn.execute(
+                "INSERT INTO assets (id,project_id,name,mime,kind,data,caption,width,created_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?)",
+                (
+                    # assets.id is a global primary key, so a copy needs its own id;
+                    # the visible filename (name) is what figures reference.
+                    "ast-" + uuid.uuid4().hex[:12],
+                    new_id,
+                    asset["name"],
+                    asset["mime"],
+                    asset["kind"],
+                    asset["data"],
+                    asset["caption"],
+                    asset["width"],
+                    stamp,
+                ),
+            )
+        conn.execute(
+            "INSERT INTO project_versions (id,project_id,author,label,note,word_count,snapshot,created_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (
+                uuid.uuid4().hex[:12],
+                new_id,
+                user["name"],
+                "Duplicated from " + row["title"],
+                "",
+                row["word_count"],
+                json.dumps(
+                    {"title": new_title, "blocks": blocks, "abstract": row["abstract"], "settings": settings},
+                    ensure_ascii=False,
+                ),
+                stamp,
+            ),
+        )
+        conn.commit()
+        fresh = conn.execute("SELECT * FROM projects WHERE id=?", (new_id,)).fetchone()
+        payload = _project_payload(fresh, conn)
+    finally:
+        conn.close()
+    return {"project": payload}
 
 
 @app.post("/api/projects/{pid}/snapshot")
@@ -693,6 +809,7 @@ def snapshot(pid: str, body: dict[str, Any], user: dict = Depends(current_user))
 
 @app.get("/api/projects/{pid}/versions")
 def list_versions(pid: str, user: dict = Depends(current_user)) -> dict[str, Any]:
+    _load_project(pid, user["id"])
     conn = db.connect()
     try:
         rows = conn.execute(
@@ -707,6 +824,7 @@ def list_versions(pid: str, user: dict = Depends(current_user)) -> dict[str, Any
 
 @app.get("/api/projects/{pid}/versions/{vid}")
 def get_version(pid: str, vid: str, user: dict = Depends(current_user)) -> dict[str, Any]:
+    _load_project(pid, user["id"])
     conn = db.connect()
     try:
         row = conn.execute(
@@ -840,6 +958,43 @@ def _project_assets(pid: str) -> list[dict[str, Any]]:
                 "SELECT name,data,mime FROM assets WHERE project_id=?", (pid,)
             )
         ]
+    finally:
+        conn.close()
+
+
+def _charge_ai_credit(uid: str, *, amount: int = 1) -> int:
+    """Deduct AI credits server-side and return the remaining balance.
+
+    Metering must never be optional or client-controlled: a caller that can set
+    ``useCredits: false`` would get unlimited model calls. The offline tutor is
+    free, so callers skip this only when no external model is configured.
+    """
+    conn = db.connect()
+    try:
+        row = conn.execute("SELECT credits FROM users WHERE id=?", (uid,)).fetchone()
+        if not row:
+            raise HTTPException(401, "Unknown user")
+        if row["credits"] < amount:
+            raise HTTPException(
+                402, "You are out of AI credits. Upgrade your plan to keep researching."
+            )
+        conn.execute(
+            "UPDATE users SET credits = credits - ? WHERE id=?", (amount, uid)
+        )
+        conn.commit()
+        return int(row["credits"]) - amount
+    finally:
+        conn.close()
+
+
+def _refund_ai_credit(uid: str, *, amount: int = 1) -> int:
+    """Return credits after a failed AI call so users never pay for errors."""
+    conn = db.connect()
+    try:
+        conn.execute("UPDATE users SET credits = credits + ? WHERE id=?", (amount, uid))
+        conn.commit()
+        row = conn.execute("SELECT credits FROM users WHERE id=?", (uid,)).fetchone()
+        return int(row["credits"]) if row else 0
     finally:
         conn.close()
 
@@ -1048,7 +1203,6 @@ def export_markdown(pid: str, user: dict = Depends(current_user)) -> Response:
 
 class ChatBody(BaseModel):
     message: str
-    useCredits: bool = True
 
 
 @app.post("/api/projects/{pid}/chat")
@@ -1059,15 +1213,6 @@ def chat(pid: str, body: ChatBody, user: dict = Depends(current_user)) -> dict[s
 
     conn = db.connect()
     try:
-        if body.useCredits:
-            fresh = conn.execute("SELECT credits FROM users WHERE id=?", (user["id"],)).fetchone()
-            if fresh["credits"] <= 0:
-                raise HTTPException(
-                    402, "You are out of AI credits. Upgrade your plan to keep researching."
-                )
-            conn.execute(
-                "UPDATE users SET credits = credits - 1 WHERE id=?", (user["id"],)
-            )
         conn.execute(
             "INSERT INTO chat_messages (id,project_id,role,content,payload,created_at)"
             " VALUES (?,?,?,?,?,?)",
@@ -1077,7 +1222,18 @@ def chat(pid: str, body: ChatBody, user: dict = Depends(current_user)) -> dict[s
     finally:
         conn.close()
 
+    # Meter only when a real model is configured; the offline tutor is free.
+    charged = 0
+    if ai.available():
+        _charge_ai_credit(user["id"])
+        charged = 1
+
     reply = ai.chat(body.message, {"documentTitle": project["title"]})
+    if charged and reply.get("source") != "gemini":
+        # The call fell back to the offline tutor (model busy / error): do not
+        # bill the user for a response they did not get from the model.
+        _refund_ai_credit(user["id"])
+        charged = 0
 
     conn = db.connect()
     try:
@@ -1111,6 +1267,7 @@ def chat(pid: str, body: ChatBody, user: dict = Depends(current_user)) -> dict[s
 
 @app.get("/api/projects/{pid}/chat")
 def chat_history(pid: str, user: dict = Depends(current_user)) -> dict[str, Any]:
+    _load_project(pid, user["id"])
     conn = db.connect()
     try:
         rows = conn.execute(
@@ -1145,7 +1302,13 @@ class PolishBody(BaseModel):
 def polish(pid: str, body: PolishBody, user: dict = Depends(current_user)) -> dict[str, Any]:
     project, _ = _load_project(pid, user["id"])
     blocks = body.blocks or project["blocks"]
+    charged = 0
+    if ai.available():
+        _charge_ai_credit(user["id"])
+        charged = 1
     result = ai.polish(blocks, body.options)
+    if charged and result.get("source") != "gemini":
+        _refund_ai_credit(user["id"])
     return {
         **result,
         "refinements": len(result["changes"]),
@@ -1166,9 +1329,14 @@ async def ingest(
 
     mime = file.content_type or "application/octet-stream"
     result = None
-    if mime.startswith("image/"):
+    charged = 0
+    if mime.startswith("image/") and ai.available():
+        _charge_ai_credit(user["id"])
+        charged = 1
         result = ai.ocr(data, mime)
     if result is None:
+        if charged:
+            _refund_ai_credit(user["id"])
         result = ai.mock_ocr(file.filename or "upload")
 
     confidence = result.get("confidence", 0.9 if result.get("engine") == "gemini" else 0.87)
@@ -1235,7 +1403,20 @@ def add_blocks(pid: str, body: AddBlocksBody, user: dict = Depends(current_user)
             else:
                 blocks.extend(incoming)
         else:
-            blocks.extend(incoming)
+            # Land new AI/OCR content before a trailing References section, if any.
+            ref_idx = next(
+                (
+                    i
+                    for i, b in enumerate(blocks)
+                    if b.get("type") == "section"
+                    and str(b.get("title", "")).strip().lower() in ("references", "bibliography")
+                ),
+                None,
+            )
+            if ref_idx is not None:
+                blocks[ref_idx:ref_idx] = incoming
+            else:
+                blocks.extend(incoming)
 
         words = latex.count_words(blocks, row["abstract"])
         conn.execute(
@@ -1289,7 +1470,13 @@ def figure_catalog() -> dict[str, Any]:
 @app.post("/api/projects/{pid}/vectorize")
 def vectorize(pid: str, body: VectorizeBody, user: dict = Depends(current_user)) -> dict[str, Any]:
     _load_project(pid, user["id"])
+    charged = 0
+    if ai.available():
+        _charge_ai_credit(user["id"])
+        charged = 1
     svg, source = ai.vectorize_svg(body.description, figures.HANDSHAKE_SVG)
+    if charged and source != "gemini":
+        _refund_ai_credit(user["id"])
     return {"svg": svg, "source": source}
 
 
@@ -1319,6 +1506,51 @@ class AttachAssetBody(BaseModel):
     width: str = "80"
 
 
+# Elements and attributes that are never needed in a static academic figure and
+# are the usual carriers for script execution in SVG.
+_SVG_EVENT_ATTR = re.compile(r"\son[a-z]+\s*=\s*(\"[^\"]*\"|'[^']*')", re.I)
+_SVG_DANGEROUS = re.compile(
+    r"<\s*(script|foreignObject|iframe|object|embed|style|animate|set)\b[^>]*>.*?<\s*/\s*\1\s*>"
+    r"|<\s*(script|foreignObject|iframe|object|embed)\b[^>]*/?>"
+    r"|\son[a-z]+\s*="
+    r"|javascript:"
+    r"|data:text/html",
+    re.I | re.S,
+)
+
+
+def _sanitize_svg(markup: str) -> str:
+    """Strip script vectors from uploaded/generated SVG.
+
+    Defence in depth: the client also renders figures through an <img> tag and a
+    sandboxed asset route, but a figure should never carry executable markup in
+    the first place.
+    """
+    if not markup or "<svg" not in markup.lower():
+        return markup
+    cleaned = _SVG_EVENT_ATTR.sub("", markup)
+    cleaned = _SVG_DANGEROUS.sub("", cleaned)
+    return cleaned
+
+
+def _decode_image_payload(markup: str) -> bytes:
+    """Turn a client data-URL into real bytes.
+
+    The figure picker sends raster uploads as ``data:image/png;base64,...``. If
+    that string were stored verbatim the compiler could not parse it and the
+    figure would be silently dropped from the PDF.
+    """
+    import base64
+
+    text = (markup or "").strip()
+    if text.startswith("data:") and ";base64," in text:
+        try:
+            return base64.b64decode(text.split(";base64,", 1)[1], validate=False)
+        except Exception:
+            return b""
+    return text.encode("utf-8")
+
+
 @app.post("/api/projects/{pid}/assets/attach")
 def attach_asset(pid: str, body: AttachAssetBody, user: dict = Depends(current_user)) -> dict[str, Any]:
     _load_project(pid, user["id"])
@@ -1327,7 +1559,7 @@ def attach_asset(pid: str, body: AttachAssetBody, user: dict = Depends(current_u
         existing = conn.execute(
             "SELECT id FROM assets WHERE project_id=? AND name=?", (pid, body.name)
         ).fetchone()
-        payload = (body.svg or "").encode("utf-8")
+        payload = _decode_image_payload(_sanitize_svg(body.svg or ""))
         if existing:
             conn.execute(
                 "UPDATE assets SET data=?,caption=?,width=?,mime=? WHERE id=?",
@@ -1338,7 +1570,8 @@ def attach_asset(pid: str, body: AttachAssetBody, user: dict = Depends(current_u
                 "INSERT INTO assets (id,project_id,name,mime,kind,data,caption,width,created_at)"
                 " VALUES (?,?,?,?,?,?,?,?,?)",
                 (
-                    body.name,
+                    # Global primary key: two projects may both attach "figure.png".
+                    "ast-" + uuid.uuid4().hex[:12],
                     pid,
                     body.name,
                     body.mime,
@@ -1356,7 +1589,8 @@ def attach_asset(pid: str, body: AttachAssetBody, user: dict = Depends(current_u
 
 
 @app.get("/api/projects/{pid}/assets/{name}")
-def get_asset(pid: str, name: str) -> Response:
+def get_asset(pid: str, name: str, user: dict = Depends(current_user)) -> Response:
+    _load_project(pid, user["id"])
     conn = db.connect()
     try:
         row = conn.execute(
@@ -1366,10 +1600,29 @@ def get_asset(pid: str, name: str) -> Response:
         conn.close()
     if not row or not row["data"]:
         raise HTTPException(404, "Asset not found.")
+    # Never echo a client-supplied MIME type verbatim: an attacker could store
+    # "text/html" and get script running on the app origin, where the session
+    # token lives. Only image types are servable, always with nosniff so the
+    # browser cannot re-interpret the bytes.
+    supplied = str(row["mime"] or "").split(";")[0].strip().lower()
+    allowed = {
+        "image/png": "image/png",
+        "image/jpeg": "image/jpeg",
+        "image/jpg": "image/jpeg",
+        "image/gif": "image/gif",
+        "image/webp": "image/webp",
+        "image/svg+xml": "image/svg+xml",
+    }
+    media = allowed.get(supplied, "application/octet-stream")
     return Response(
         content=row["data"],
-        media_type=row["mime"],
-        headers={"Cache-Control": "public, max-age=300"},
+        media_type=media,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+            # inline SVG must not run script even if opened directly
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        },
     )
 
 
@@ -1384,6 +1637,15 @@ class UpgradeBody(BaseModel):
 
 @app.post("/api/billing/upgrade")
 def upgrade(body: UpgradeBody, user: dict = Depends(current_user)) -> dict[str, Any]:
+    # Prototype billing must not be a free-money endpoint. Real deployments route
+    # this through a Stripe webhook that is verified server-side; anything else
+    # lets any caller grant themselves the highest plan.
+    if env.get("AI2LATEX_ALLOW_SELF_UPGRADE", "0") != "1":
+        raise HTTPException(
+            402,
+            "Plan changes require a completed checkout. Configure Stripe and the "
+            "billing webhook before enabling self-service upgrades.",
+        )
     credits = {"free": 20, "pro": 500, "lab": 2000}[body.plan]
     conn = db.connect()
     try:

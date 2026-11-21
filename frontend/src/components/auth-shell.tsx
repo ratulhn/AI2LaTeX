@@ -27,7 +27,7 @@ export function AuthShell({
 
         <div className="relative">
           <Link href="/" className="inline-flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-white text-[13px] font-semibold text-ink">
+            <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-white text-[15.5px] font-semibold text-ink">
               Σ
             </span>
             <span className="text-[15px] font-semibold text-white">AI2LaTeX</span>
@@ -35,7 +35,7 @@ export function AuthShell({
         </div>
 
         <div className="relative max-w-[380px]">
-          <p className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.13em] text-white/40">
+          <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.13em] text-white/40">
             Your notes. Clearer documents.
           </p>
           <h1 className="text-[32px] font-semibold leading-[1.12] tracking-[-0.02em] text-white">
@@ -43,7 +43,7 @@ export function AuthShell({
             <br />
             to a ready-to-share PDF.
           </h1>
-          <p className="mt-3 text-[12.5px] leading-relaxed text-white/55">
+          <p className="mt-3 text-[15px] leading-relaxed text-white/55">
             Snap a photo, clean up a diagram, or ask AI for help. The typesetting, the equations and
             the compile are handled for you.
           </p>
@@ -55,16 +55,16 @@ export function AuthShell({
               ["03", "Ask AI for help"],
             ].map(([no, label]) => (
               <div key={no} className="flex items-center gap-2.5">
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-[4px] border border-white/15 text-[9px] font-semibold text-white/60">
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-[4px] border border-white/15 text-[12px] font-semibold text-white/60">
                   {no}
                 </span>
-                <span className="text-[12px] text-white/70">{label}</span>
+                <span className="text-[14.5px] text-white/70">{label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative text-[10.5px] text-white/35">
+        <p className="relative text-[13px] text-white/35">
           Academic document workspace · prototype build
         </p>
       </aside>
@@ -74,20 +74,20 @@ export function AuthShell({
         <div className="w-full max-w-[360px]">
           <div className="mb-6 lg:hidden">
             <Link href="/" className="inline-flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-ink text-[13px] font-semibold text-white">
+              <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-ink text-[15.5px] font-semibold text-white">
                 Σ
               </span>
               <span className="text-[15px] font-semibold text-ink">AI2LaTeX</span>
             </Link>
           </div>
 
-          <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.11em] text-muted">
+          <p className="mb-1.5 text-[13px] font-semibold uppercase tracking-[0.11em] text-muted">
             {eyebrow}
           </p>
           <h2 className="text-[24px] font-semibold leading-tight tracking-[-0.015em] text-ink">
             {title}
           </h2>
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">{subtitle}</p>
+          <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{subtitle}</p>
 
           <div className="mt-5">{children}</div>
         </div>
@@ -116,7 +116,7 @@ export function GoogleButton({
       disabled={loading || disabled}
       title={title}
       aria-disabled={disabled || loading ? true : undefined}
-      className="flex h-10 w-full items-center justify-center gap-2 rounded-[8px] border border-border bg-white text-[13px] font-medium text-ink shadow-sm transition-colors hover:border-slate-300 hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border disabled:hover:bg-white"
+      className="flex h-10 w-full items-center justify-center gap-2 rounded-[8px] border border-border bg-white text-[15.5px] font-medium text-ink shadow-sm transition-colors hover:border-slate-300 hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border disabled:hover:bg-white"
     >
       {loading ? (
         <span className="h-3.5 w-3.5 animate-spin rounded-full border-[1.8px] border-slate-300 border-t-ink" />
@@ -137,7 +137,7 @@ export function OrDivider({ label }: { label: string }) {
   return (
     <div className="my-4 flex items-center gap-2.5">
       <span className="h-px flex-1 bg-border" />
-      <span className="text-[10.5px] uppercase tracking-[0.08em] text-muted">{label}</span>
+      <span className="text-[13px] uppercase tracking-[0.08em] text-muted">{label}</span>
       <span className="h-px flex-1 bg-border" />
     </div>
   );
@@ -145,7 +145,7 @@ export function OrDivider({ label }: { label: string }) {
 
 export function GoogleAiNote() {
   return (
-    <p className="mt-2 flex items-center justify-center gap-1.5 text-[10.5px] text-muted">
+    <p className="mt-2 flex items-center justify-center gap-1.5 text-[13px] text-muted">
       <span className="text-[#f59e0b]">⚡</span> Sign in once. Google AI is ready to help.
     </p>
   );
@@ -339,7 +339,7 @@ export function VerifyEmailStep({
       {error ? (
         <p
           role="alert"
-          className="mb-3 rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger"
+          className="mb-3 rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[14px] text-danger"
         >
           {error}
         </p>
@@ -349,7 +349,7 @@ export function VerifyEmailStep({
         Verify email &amp; continue
       </Button>
 
-      <p className="mt-2.5 text-center text-[10.5px] text-muted">
+      <p className="mt-2.5 text-center text-[13px] text-muted">
         Code expires in 10 minutes. You can paste all 6 digits.
       </p>
 
@@ -358,21 +358,21 @@ export function VerifyEmailStep({
           className="mt-4 rounded-[8px] border border-blue-line bg-blue-soft px-3 py-2"
           data-testid="dev-code-banner"
         >
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-blue">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-blue">
             Prototype code
           </p>
-          <p className="mt-0.5 text-[11.5px] leading-relaxed text-blue/90">
+          <p className="mt-0.5 text-[14px] leading-relaxed text-blue/90">
             No email is sent in the prototype — your code is{" "}
-            <span className="font-mono text-[13px] font-semibold">{currentCode}</span>
+            <span className="font-mono text-[15.5px] font-semibold">{currentCode}</span>
           </p>
         </div>
       ) : (
-        <p className="mt-4 text-center text-[10.5px] leading-relaxed text-muted">
+        <p className="mt-4 text-center text-[13px] leading-relaxed text-muted">
           Check your spam folder if the code does not arrive.
         </p>
       )}
 
-      <div className="mt-4 flex items-center justify-between gap-2 text-[11.5px]">
+      <div className="mt-4 flex items-center justify-between gap-2 text-[14px]">
         <button
           type="button"
           onClick={resend}
@@ -396,14 +396,14 @@ export function VerifyEmailStep({
         <button
           type="button"
           onClick={onChangeEmail}
-          className="text-[11.5px] text-muted hover:text-ink"
+          className="text-[14px] text-muted hover:text-ink"
         >
           Wrong email address? Change email
         </button>
       </div>
 
       {email ? (
-        <p className="mt-4 text-center text-[10.5px] text-muted">
+        <p className="mt-4 text-center text-[13px] text-muted">
           Verification code sent to <span className="font-mono text-slate-mid">{email}</span>
         </p>
       ) : null}

@@ -58,7 +58,7 @@ export function VersionsModal({
       description="Restoring a version keeps your current work in history."
       footer={
         <>
-          <span className="text-[11px] text-muted">
+          <span className="text-[13.5px] text-muted">
             {selected ? `Selected: ${longDate(versions.find((v) => v.id === selected)?.created_at ?? "")}` : "Select a version"}
           </span>
           <div className="flex gap-2">
@@ -104,14 +104,14 @@ export function VersionsModal({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="truncate text-[12.5px] font-medium text-ink">{v.label}</p>
+                      <p className="truncate text-[15px] font-medium text-ink">{v.label}</p>
                       {isCurrent ? (
                         <span className="rounded-[3px] bg-success-soft px-1.5 py-[1px] text-[9.5px] font-semibold uppercase tracking-wide text-success-deep">
                           Current
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-muted">
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
                       <Clock size={9} />
                       {longDate(v.created_at)} · {v.author}
                       <span className="text-border">|</span>
@@ -120,7 +120,7 @@ export function VersionsModal({
                       {relativeTime(v.created_at)}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-[4px] border border-border bg-white px-1.5 py-[2px] text-[10px] text-slate-mid">
+                  <span className="shrink-0 rounded-[4px] border border-border bg-white px-1.5 py-[2px] text-[12.5px] text-slate-mid">
                     Preview
                   </span>
                 </button>
@@ -129,7 +129,7 @@ export function VersionsModal({
             {versions.length === 0 ? (
               <div className="flex flex-col items-center py-8 text-center">
                 <History size={18} className="mb-2 text-watermark" />
-                <p className="text-[12.5px] text-muted">No versions captured yet.</p>
+                <p className="text-[15px] text-muted">No versions captured yet.</p>
               </div>
             ) : null}
           </div>
@@ -152,11 +152,11 @@ export function ActivityModal({
     <Modal open={open} onClose={onClose} title="Document activity" width="sm">
       <ul className="space-y-2">
         {activity.map((a, i) => (
-          <li key={i} className="flex items-start gap-2 text-[12px]">
+          <li key={i} className="flex items-start gap-2 text-[14.5px]">
             <span className="mt-[6px] h-[5px] w-[5px] shrink-0 rounded-full bg-watermark" />
             <div>
               <p className="text-ink">{a.label}</p>
-              <p className="text-[10.5px] text-muted">{relativeTime(a.at)}</p>
+              <p className="text-[13px] text-muted">{relativeTime(a.at)}</p>
             </div>
           </li>
         ))}

@@ -8,8 +8,57 @@ import json
 import os
 import secrets
 import time
+from pathlib import Path
 
-_SECRET = os.environ.get("AI2LATEX_SECRET") or "ai2latex-prototype-secret"
+# The signing secret must never be a value that ships in the repository: anyone
+# who can read the source could otherwise mint a valid token for any user id.
+# Resolution order:
+#   1. AI2LATEX_SECRET from the environment / .env (production and CI)
+#   2. a random secret persisted in the data directory (local development)
+# A fresh random secret is generated on first run and reused afterwards, so
+# existing sessions survive restarts instead of logging everyone out.
+_SECRET_FALLBACK_PATH = Path(__file__).resolve().parent.parent / "data" / ".session-secret"
+_cached_secret: str | None = None
+
+
+def _load_secret() -> str:
+    global _cached_secret
+    if _cached_secret:
+        return _cached_secret
+
+    # Read lazily: env.load_env() may run after this module is first imported.
+    configured = os.environ.get("AI2LATEX_SECRET", "").strip()
+    if configured:
+        _cached_secret = configured
+        return _cached_secret
+
+    try:
+        _SECRET_FALLBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if _SECRET_FALLBACK_PATH.exists():
+            stored = _SECRET_FALLBACK_PATH.read_text(encoding="utf-8").strip()
+            if stored:
+                _cached_secret = stored
+                return _cached_secret
+        generated = secrets.token_urlsafe(48)
+        _SECRET_FALLBACK_PATH.write_text(generated, encoding="utf-8")
+        try:
+            os.chmod(_SECRET_FALLBACK_PATH, 0o600)
+        except OSError:
+            pass
+        _cached_secret = generated
+        return _cached_secret
+    except OSError:
+        # Last resort so the app still boots on a read-only filesystem; a
+        # per-process secret invalidates sessions on restart but never creates a
+        # forgeable, publicly-known signing key.
+        _cached_secret = secrets.token_urlsafe(48)
+        return _cached_secret
+
+
+def _secret() -> bytes:
+    return _load_secret().encode("utf-8")
+
+
 _ITERATIONS = 120_000
 
 
@@ -44,7 +93,7 @@ def verify_password(password: str, stored: str) -> bool:
 def make_token(user_id: str, days: int = 30) -> str:
     payload = {"sub": user_id, "exp": int(time.time()) + days * 86400}
     body = _b64(json.dumps(payload, separators=(",", ":")).encode())
-    sig = _b64(hmac.new(_SECRET.encode(), body.encode(), hashlib.sha256).digest())
+    sig = _b64(hmac.new(_secret(), body.encode(), hashlib.sha256).digest())
     return f"{body}.{sig}"
 
 
@@ -84,7 +133,7 @@ def make_scoped_token(
     }
     payload.update(claims)
     body = _b64(json.dumps(payload, separators=(",", ":")).encode())
-    sig = _b64(hmac.new(_SECRET.encode(), body.encode(), hashlib.sha256).digest())
+    sig = _b64(hmac.new(_secret(), body.encode(), hashlib.sha256).digest())
     return f"{body}.{sig}"
 
 
@@ -116,7 +165,7 @@ def _read_payload(token: str) -> dict[str, object] | None:
     if not token or "." not in token:
         return None
     body, _, sig = token.rpartition(".")
-    expected = _b64(hmac.new(_SECRET.encode(), body.encode(), hashlib.sha256).digest())
+    expected = _b64(hmac.new(_secret(), body.encode(), hashlib.sha256).digest())
     if not hmac.compare_digest(sig, expected):
         return None
     try:

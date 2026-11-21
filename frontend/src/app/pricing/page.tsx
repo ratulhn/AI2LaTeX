@@ -37,13 +37,13 @@ export default function PricingPage() {
 
       <main className="mx-auto max-w-[1000px] px-5 py-14">
         <div className="mb-8 text-center">
-          <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ai">
+          <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-ai">
             Upgrade to Pro
           </p>
           <h1 className="text-[30px] font-semibold tracking-[-0.02em] text-ink">
             More room for your research
           </h1>
-          <p className="mx-auto mt-2 max-w-[440px] text-[13px] leading-relaxed text-muted">
+          <p className="mx-auto mt-2 max-w-[440px] text-[15.5px] leading-relaxed text-muted">
             Find the right workspace for your publication journey. Every plan keeps the same compiler,
             typography and export pipeline.
           </p>
@@ -96,15 +96,15 @@ export default function PricingPage() {
                   Most popular
                 </span>
               ) : null}
-              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-muted">{p.kicker}</p>
+              <p className="text-[12.5px] font-semibold uppercase tracking-[0.09em] text-muted">{p.kicker}</p>
               <h3 className="mt-1 text-[15px] font-semibold text-ink">{p.name}</h3>
               <p className="mt-1.5 flex items-baseline gap-0.5">
                 <span className="text-[28px] font-semibold tracking-[-0.02em] text-ink">{p.price}</span>
-                <span className="text-[11.5px] text-muted">/mo</span>
+                <span className="text-[14px] text-muted">/mo</span>
               </p>
               <ul className="mt-3 space-y-1.5">
                 {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-1.5 text-[12px] text-slate-mid">
+                  <li key={f} className="flex items-start gap-1.5 text-[14.5px] text-slate-mid">
                     <Check size={12} className="mt-[1px] shrink-0 text-success-deep" />
                     {f}
                   </li>
@@ -125,7 +125,7 @@ export default function PricingPage() {
           ))}
         </div>
 
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-[10.5px] text-muted">
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-[13px] text-muted">
           <Sparkles size={10} className="text-ai" />
           Secure checkout with Stripe • Cancel anytime • Student discounts supported
         </p>

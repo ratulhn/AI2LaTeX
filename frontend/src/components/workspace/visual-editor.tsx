@@ -157,6 +157,18 @@ export function VisualEditor({
     [blocks, onBlocksChange],
   );
 
+  /** Remove a block and move focus to the block above it, if any. */
+  const deleteBlock = React.useCallback(
+    (id: string) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      const prev = idx > 0 ? blocks[idx - 1] : null;
+      onBlocksChange(blocks.filter((b) => b.id !== id));
+      setEditingId(null);
+      if (prev?.type === "paragraph") focusTextarea(prev.id);
+    },
+    [blocks, onBlocksChange],
+  );
+
   /** Split a paragraph at the caret into two paragraphs. */
   const splitParagraph = React.useCallback(
     (id: string, text: string, caret: number) => {
@@ -353,7 +365,7 @@ export function VisualEditor({
       value={block.level}
       onChange={(e) => patch(block.id, { level: Number(e.target.value) as 1 | 2 | 3 } as Partial<Block>)}
       onClick={(e) => e.stopPropagation()}
-      className="cursor-pointer appearance-none rounded-[4px] border border-border bg-white px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-muted hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue/30"
+      className="cursor-pointer appearance-none rounded-[4px] border border-border bg-white px-1.5 py-[1px] text-[12.5px] font-semibold uppercase tracking-wide text-muted hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue/30"
       title="Heading level"
     >
       <option value={1}>H1</option>
@@ -377,7 +389,7 @@ export function VisualEditor({
         <GripVertical size={13} />
       </button>
       <button
-        onClick={() => replaceBlock(block.id, null)}
+        onClick={() => deleteBlock(block.id)}
         aria-label="Delete block"
         className="grid h-6 w-5 place-items-center rounded-[4px] text-watermark hover:bg-[#fef2f2] hover:text-danger"
       >
@@ -392,6 +404,7 @@ export function VisualEditor({
         ref={(el) => {
           textareaRefs.current[block.id] = el;
         }}
+        data-paragraph-id={block.id}
         value={block.text}
         onChange={(e) => {
           patch(block.id, { text: e.target.value } as Partial<Block>);
@@ -414,7 +427,9 @@ export function VisualEditor({
             splitParagraph(block.id, block.text, e.currentTarget.selectionStart);
           } else if (e.key === "Backspace" && block.text === "") {
             e.preventDefault();
-            replaceBlock(block.id, null);
+            deleteBlock(block.id);
+          } else if (e.key === "Escape") {
+            e.currentTarget.blur();
           }
         }}
         onFocus={() => {
@@ -423,6 +438,7 @@ export function VisualEditor({
         }}
         onBlur={() => {
           setEditingId((cur) => (cur === block.id ? null : cur));
+          slash.close();
         }}
         rows={Math.max(1, Math.ceil(block.text.length / 78) + (block.text.length === 0 ? 0 : 0))}
         placeholder="Type / to insert a heading, table, equation or figure…"
@@ -438,7 +454,8 @@ export function VisualEditor({
           commands={slash.filtered}
           activeIndex={slash.activeIndex}
           onPick={(cmd) => {
-            const cleaned = block.text.replace(/\/[a-z]*$/i, "");
+            // Remove the typed "/query" so it never leaks into the paragraph.
+            const cleaned = block.text.replace(/(?:^|\s)\/[a-z]*$/i, "").replace(/\s+$/, "");
             patch(block.id, { text: cleaned } as Partial<Block>);
             cmd.run();
             slash.close();
@@ -504,6 +521,7 @@ export function VisualEditor({
           return (
             <div
               key={block.id}
+              id={`block-${block.id}`}
               onMouseEnter={() => setHoverId(block.id)}
               onMouseLeave={() => setHoverId((h) => (h === block.id ? null : h))}
               onClick={(e) => {
@@ -554,6 +572,7 @@ export function VisualEditor({
                       e.stopPropagation();
                       setEditingId(block.id);
                       setActiveId(block.id);
+                      focusTextarea(block.id, block.text.length);
                     }}
                   >
                     {block.text ? renderInline(block.text) : (
@@ -596,7 +615,7 @@ export function VisualEditor({
                     onClick={() =>
                       patch(block.id, { items: [...block.items, ""] } as Partial<Block>)
                     }
-                    className="mt-1 flex items-center gap-1 text-[11px] text-muted hover:text-blue"
+                    className="mt-1 flex items-center gap-1 text-[13.5px] text-muted hover:text-blue"
                   >
                     <Plus size={11} /> Add item
                   </button>
@@ -612,7 +631,7 @@ export function VisualEditor({
                     value={block.latex}
                     onChange={(e) => patch(block.id, { latex: e.target.value } as Partial<Block>)}
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1 w-full rounded-[4px] border border-border bg-[#f8fafc] px-2 py-1 font-mono text-[11px] text-slate-mid outline-none focus:border-blue focus:bg-white"
+                    className="mt-1 w-full rounded-[4px] border border-border bg-[#f8fafc] px-2 py-1 font-mono text-[13.5px] text-slate-mid outline-none focus:border-blue focus:bg-white"
                     placeholder="T \approx \frac{W}{RTT}"
                     spellCheck={false}
                   />
@@ -623,7 +642,7 @@ export function VisualEditor({
                 <div className="my-2">
                   <PaperTable block={block} accent={accent} />
                   <details className="mt-1">
-                    <summary className="flex cursor-pointer items-center gap-1 text-[11px] text-muted hover:text-blue">
+                    <summary className="flex cursor-pointer items-center gap-1 text-[13.5px] text-muted hover:text-blue">
                       <Table2 size={11} /> Edit cells & caption
                       <ChevronDown size={10} />
                     </summary>
@@ -631,11 +650,11 @@ export function VisualEditor({
                       <input
                         value={block.caption}
                         onChange={(e) => patch(block.id, { caption: e.target.value } as Partial<Block>)}
-                        className="w-full rounded-[4px] border border-border bg-white px-2 py-1 text-[11.5px]"
+                        className="w-full rounded-[4px] border border-border bg-white px-2 py-1 text-[14px]"
                         placeholder="Table caption"
                       />
                       <div className="overflow-x-auto">
-                        <table className="w-full text-[11px]">
+                        <table className="w-full text-[13.5px]">
                           <thead>
                             <tr>
                               {block.columns.map((c, ci) => (
@@ -695,7 +714,7 @@ export function VisualEditor({
                               rows: [...block.rows, block.columns.map(() => "")],
                             } as Partial<Block>)
                           }
-                          className="rounded-[4px] border border-border bg-white px-2 py-1 text-[10.5px] text-slate-mid hover:border-blue hover:text-blue"
+                          className="rounded-[4px] border border-border bg-white px-2 py-1 text-[13px] text-slate-mid hover:border-blue hover:text-blue"
                         >
                           + Row
                         </button>
@@ -706,7 +725,7 @@ export function VisualEditor({
                               rows: block.rows.map((r) => [...r, ""]),
                             } as Partial<Block>)
                           }
-                          className="rounded-[4px] border border-border bg-white px-2 py-1 text-[10.5px] text-slate-mid hover:border-blue hover:text-blue"
+                          className="rounded-[4px] border border-border bg-white px-2 py-1 text-[13px] text-slate-mid hover:border-blue hover:text-blue"
                         >
                           + Column
                         </button>
@@ -734,7 +753,7 @@ export function VisualEditor({
                       onClick={(e) => e.stopPropagation()}
                       className="w-[70%] border-0 bg-transparent text-center text-[0.85em] text-[#475569] outline-none focus:bg-blue-soft/40"
                     />
-                    <div className="mt-1 flex items-center justify-center gap-2 text-[10px] text-muted">
+                    <div className="mt-1 flex items-center justify-center gap-2 text-[12.5px] text-muted">
                       <ImageIcon size={10} />
                       {(["50", "80", "100", "full"] as const).map((w) => (
                         <button
@@ -755,7 +774,7 @@ export function VisualEditor({
 
               {block.type === "pagebreak" ? (
                 <div className="my-4 border-t border-dashed border-[#cbd5e1] text-center">
-                  <span className="relative -top-2 bg-white px-2 text-[9px] uppercase tracking-widest text-muted">
+                  <span className="relative -top-2 bg-white px-2 text-[12px] uppercase tracking-widest text-muted">
                     page break
                   </span>
                 </div>
@@ -769,11 +788,11 @@ export function VisualEditor({
       <div className="mt-6 flex items-center justify-center gap-1.5 border-t border-dashed border-border pt-4">
         <button
           onClick={() => insertAfter(blocks.at(-1)?.id ?? null, { id: uid(), type: "paragraph", text: "" })}
-          className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-white px-2.5 py-1.5 text-[11.5px] text-slate-mid shadow-sm hover:border-blue hover:text-blue"
+          className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-white px-2.5 py-1.5 text-[14px] text-slate-mid shadow-sm hover:border-blue hover:text-blue"
         >
           <Plus size={12} /> Add block
         </button>
-        <span className="text-[10.5px] text-muted">or type / in any paragraph</span>
+        <span className="text-[13px] text-muted">or type / in any paragraph</span>
       </div>
     </div>
   );
@@ -781,6 +800,8 @@ export function VisualEditor({
 
 export function EditorToolbar({
   onInsert,
+  onFormat,
+  onBullets,
   onAiAction,
   onFigure,
   onEquation,
@@ -788,16 +809,18 @@ export function EditorToolbar({
   onImproveImage,
 }: {
   onInsert: (level: 1 | 2 | 3) => void;
-  onAiAction: (kind: "academic" | "condense" | "grammar" | "table") => void;
+  onFormat: (kind: "bold" | "italic") => void;
+  onBullets: () => void;
+  onAiAction: (kind: "academic" | "grammar") => void;
   onFigure: () => void;
   onEquation: () => void;
   onTable: () => void;
   onImproveImage: () => void;
 }) {
   const tools = [
-    { label: "H1", onClick: () => onInsert(1), title: "Insert H1" },
-    { label: "H2", onClick: () => onInsert(2), title: "Insert H2" },
-    { label: "H3", onClick: () => onInsert(3), title: "Insert H3" },
+    { label: "H1", onClick: () => onInsert(1), title: "Insert H1 section" },
+    { label: "H2", onClick: () => onInsert(2), title: "Insert H2 subsection" },
+    { label: "H3", onClick: () => onInsert(3), title: "Insert H3 subsubsection" },
   ];
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-border bg-white px-3 py-1.5">
@@ -806,19 +829,34 @@ export function EditorToolbar({
           key={t.label}
           onClick={t.onClick}
           title={t.title}
-          className="h-6 rounded-[4px] px-1.5 text-[11px] font-semibold text-slate-mid hover:bg-slate-soft hover:text-ink"
+          aria-label={t.title}
+          className="h-6 rounded-[4px] px-1.5 text-[13.5px] font-semibold text-slate-mid hover:bg-slate-soft hover:text-ink"
         >
           {t.label}
         </button>
       ))}
       <span className="mx-1 h-4 w-px bg-border" />
-      <IconButton label="Bold" className="h-6 w-6" onClick={() => onAiAction("academic")}>
+      <IconButton
+        label="Bold (Ctrl+B)"
+        className="h-6 w-6"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onFormat("bold");
+        }}
+      >
         <Bold size={12} />
       </IconButton>
-      <IconButton label="Italic" className="h-6 w-6">
+      <IconButton
+        label="Italic (Ctrl+I)"
+        className="h-6 w-6"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onFormat("italic");
+        }}
+      >
         <Italic size={12} />
       </IconButton>
-      <IconButton label="Bullet list" className="h-6 w-6" onClick={() => onInsert(1)}>
+      <IconButton label="Bullet list" className="h-6 w-6" onClick={onBullets}>
         <List size={12} />
       </IconButton>
       <IconButton label="Insert math" className="h-6 w-6" onClick={onEquation}>
@@ -833,19 +871,19 @@ export function EditorToolbar({
       <span className="mx-1 h-4 w-px bg-border" />
       <button
         onClick={() => onAiAction("academic")}
-        className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-1 text-[11px] font-medium text-ai hover:bg-ai-soft"
+        className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-1 text-[13.5px] font-medium text-ai hover:bg-ai-soft"
       >
         <Type size={11} /> Make Academic
       </button>
       <button
         onClick={() => onAiAction("grammar")}
-        className="rounded-[4px] px-1.5 py-1 text-[11px] text-slate-mid hover:bg-slate-soft hover:text-ink"
+        className="rounded-[4px] px-1.5 py-1 text-[13.5px] text-slate-mid hover:bg-slate-soft hover:text-ink"
       >
         Fix Grammar
       </button>
       <button
         onClick={onImproveImage}
-        className="rounded-[4px] px-1.5 py-1 text-[11px] text-slate-mid hover:bg-slate-soft hover:text-ink"
+        className="rounded-[4px] px-1.5 py-1 text-[13.5px] text-slate-mid hover:bg-slate-soft hover:text-ink"
       >
         Improve image
       </button>

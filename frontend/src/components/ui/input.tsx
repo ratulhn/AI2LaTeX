@@ -10,7 +10,7 @@ export const Input = React.forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-[6px] border bg-white px-3 text-[13.5px] text-ink placeholder:text-muted/80",
+      "h-10 w-full rounded-[6px] border bg-white px-3 text-[16px] text-ink placeholder:text-muted/80",
       "transition-colors focus:outline-none focus:ring-2 focus:ring-blue/25 focus:border-blue",
       invalid ? "border-danger focus:border-danger focus:ring-danger/20" : "border-border hover:border-slate-300",
       className,
@@ -27,7 +27,7 @@ export const Textarea = React.forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      "w-full resize-none rounded-[6px] border border-border bg-white px-3 py-2 text-[13.5px] text-ink",
+      "w-full resize-none rounded-[6px] border border-border bg-white px-3 py-2 text-[16px] text-ink",
       "placeholder:text-muted/80 transition-colors focus:outline-none focus:ring-2 focus:ring-blue/25 focus:border-blue",
       className,
     )}
@@ -44,10 +44,10 @@ export function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement> & { hint?: React.ReactNode }) {
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-3">
-      <label className={cn("text-[12.5px] font-medium text-slate-mid", className)} {...props}>
+      <label className={cn("text-[15px] font-medium text-slate-mid", className)} {...props}>
         {children}
       </label>
-      {hint ? <span className="text-[11px] text-muted">{hint}</span> : null}
+      {hint ? <span className="text-[13.5px] text-muted">{hint}</span> : null}
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function Field({
       </Label>
       {children}
       {error ? (
-        <p className="mt-1.5 flex items-center gap-1 text-[11.5px] text-danger">
+        <p className="mt-1.5 flex items-center gap-1 text-[14px] text-danger">
           <span aria-hidden>⚠</span>
           {error}
         </p>
@@ -93,7 +93,7 @@ export function Checkbox({
   className?: string;
 }) {
   return (
-    <label className={cn("inline-flex cursor-pointer items-center gap-2 text-[12.5px] text-slate-mid", className)}>
+    <label className={cn("inline-flex cursor-pointer items-center gap-2 text-[15px] text-slate-mid", className)}>
       <span
         className={cn(
           "grid h-[15px] w-[15px] shrink-0 place-items-center rounded-[4px] border transition-colors",
@@ -129,7 +129,7 @@ export function Radio({
   name: string;
 }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2 text-[12.5px] text-slate-mid">
+    <label className="inline-flex cursor-pointer items-center gap-2 text-[15px] text-slate-mid">
       <span
         className={cn(
           "grid h-[15px] w-[15px] place-items-center rounded-full border transition-colors",

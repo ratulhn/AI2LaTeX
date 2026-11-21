@@ -53,7 +53,7 @@ export function TypographyModal({
       description="Search any available font or upload TTF/OTF. Enter a custom point size; presets are shortcuts."
       footer={
         <>
-          <span className="text-[11px] text-muted">
+          <span className="text-[13.5px] text-muted">
             Applies to section headings, hyperlinks and table rules.
           </span>
           <div className="flex gap-2">
@@ -74,14 +74,14 @@ export function TypographyModal({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <p className="mb-1.5 text-[12.5px] font-medium text-slate-mid">Font family · type to search</p>
+          <p className="mb-1.5 text-[15px] font-medium text-slate-mid">Font family · type to search</p>
           <div className="relative">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={draft.font === "tinos" ? "Tinos · search fonts" : "Search fonts"}
-              className="h-9 w-full rounded-[6px] border border-border bg-white pl-7 pr-2 text-[12.5px] outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
+              className="h-9 w-full rounded-[6px] border border-border bg-white pl-7 pr-2 text-[15px] outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
             />
           </div>
           <div className="mt-1.5 space-y-1">
@@ -96,24 +96,24 @@ export function TypographyModal({
                     : "border-border bg-white text-ink hover:border-slate-300",
                 )}
               >
-                <span style={{ fontFamily: f.stack }} className="text-[13px]">
+                <span style={{ fontFamily: f.stack }} className="text-[15.5px]">
                   {f.label}
                 </span>
-                {draft.font === f.id ? <span className="text-[10px] font-semibold">ACTIVE</span> : null}
+                {draft.font === f.id ? <span className="text-[12.5px] font-semibold">ACTIVE</span> : null}
               </button>
             ))}
           </div>
-          <button className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-dashed border-border bg-canvas/60 py-1.5 text-[11.5px] text-slate-mid hover:border-blue hover:text-blue">
+          <button className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-dashed border-border bg-canvas/60 py-1.5 text-[14px] text-slate-mid hover:border-blue hover:text-blue">
             <Upload size={11} /> Add fonts · upload TTF or OTF
           </button>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted">
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
             Your fonts appear in the picker after upload. Use fonts you have permission to embed in a
             PDF.
           </p>
         </div>
 
         <div>
-          <p className="mb-1.5 text-[12.5px] font-medium text-slate-mid">Font size (pt) · enter any size</p>
+          <p className="mb-1.5 text-[15px] font-medium text-slate-mid">Font size (pt) · enter any size</p>
           <div className="flex items-center gap-1.5">
             <input
               type="number"
@@ -124,14 +124,14 @@ export function TypographyModal({
               onChange={(e) =>
                 setDraft((d) => ({ ...d, fontSize: Math.max(6, Math.min(24, Number(e.target.value) || 11)) }))
               }
-              className="h-9 w-20 rounded-[6px] border border-border bg-white px-2 text-[12.5px] outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
+              className="h-9 w-20 rounded-[6px] border border-border bg-white px-2 text-[15px] outline-none focus:border-blue focus:ring-2 focus:ring-blue/15"
             />
             {SIZE_PRESETS.map((s) => (
               <button
                 key={s}
                 onClick={() => setDraft((d) => ({ ...d, fontSize: s }))}
                 className={cn(
-                  "h-8 rounded-[5px] border px-2 text-[11.5px]",
+                  "h-8 rounded-[5px] border px-2 text-[14px]",
                   draft.fontSize === s
                     ? "border-blue bg-blue-soft text-blue"
                     : "border-border bg-white text-slate-mid hover:border-slate-300",
@@ -141,11 +141,11 @@ export function TypographyModal({
               </button>
             ))}
           </div>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted">
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
             The buttons are shortcuts, not a size limit. Decimals are allowed (e.g. 13.5).
           </p>
 
-          <p className="mb-1.5 mt-3 text-[12.5px] font-medium text-slate-mid">Academic accent theme</p>
+          <p className="mb-1.5 mt-3 text-[15px] font-medium text-slate-mid">Academic accent theme</p>
           <div className="grid grid-cols-2 gap-1.5">
             {(Object.keys(ACCENTS) as AccentKey[]).map((key) => {
               const a = ACCENTS[key];
@@ -164,7 +164,7 @@ export function TypographyModal({
                     style={{ background: a.hex }}
                   />
                   <span className="min-w-0">
-                    <span className="block truncate text-[11.5px] font-medium text-ink">{a.label}</span>
+                    <span className="block truncate text-[14px] font-medium text-ink">{a.label}</span>
                     <span className="block font-mono text-[9.5px] uppercase text-muted">{a.hex}</span>
                   </span>
                 </button>
@@ -173,7 +173,7 @@ export function TypographyModal({
           </div>
 
           <div className="mt-3 rounded-[6px] border border-border bg-white p-2.5">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+            <p className="mb-1 text-[12.5px] font-semibold uppercase tracking-[0.08em] text-muted">
               Preview · {FONT_OPTIONS.find((f) => f.id === draft.font)?.label} · {draft.fontSize} pt
             </p>
             <p

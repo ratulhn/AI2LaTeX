@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, downloadExport } from "@/lib/api";
-import type { Block, CompileResult, DocSettings, Project } from "@/lib/types";
+import type { Block, CompileResult, DocSettings, PolishChange, Project } from "@/lib/types";
 import { useSession } from "@/components/session-provider";
 import { useToast } from "@/components/ui/toast";
 import { Button, IconButton } from "@/components/ui/button";
@@ -79,6 +79,7 @@ export default function WorkspacePage() {
   >([]);
 
   const [polishOpen, setPolishOpen] = React.useState(false);
+  const [polishResult, setPolishResult] = React.useState<{ options: string[]; changes: PolishChange[] } | null>(null);
   const [figureOpen, setFigureOpen] = React.useState(false);
   const [vectorizeOpen, setVectorizeOpen] = React.useState(false);
   const [versionsOpen, setVersionsOpen] = React.useState(false);
@@ -206,7 +207,7 @@ export default function WorkspacePage() {
       try {
         const res = await api.compile(project.id, {
           latex: opts.fromSource ? source : undefined,
-          persist: !!opts.fromSource,
+          persist: false,
           includePreview: false,
         });
         setCompile(res);
@@ -225,6 +226,42 @@ export default function WorkspacePage() {
     },
     [project, source, toast],
   );
+
+  const compileAndSaveSource = React.useCallback(async () => {
+    if (!project) return;
+    setCompiling(true);
+    try {
+      const res = await api.compile(project.id, { latex: source, persist: true, includePreview: false });
+      setCompile(res);
+      setPdfVersion(Date.now());
+      if (res.ok) {
+        setSourceDirty(false);
+        setProject((p) => (p ? { ...p, latexOverride: source } : p));
+        toast.success("Source saved and compiled", `${res.pages} page${res.pages === 1 ? "" : "s"}`);
+      } else {
+        toast.error("Compilation failed", res.errors[0] ?? "Fix the error and try again");
+      }
+    } catch (err) {
+      toast.error("Compile & Save failed", err instanceof Error ? err.message : undefined);
+    } finally {
+      setCompiling(false);
+    }
+  }, [project, source, toast]);
+
+  const resetToCanvas = React.useCallback(async () => {
+    if (!project) return;
+    try {
+      const res = await api.updateProject(project.id, { clearLatexOverride: true });
+      setProject(res.project);
+      lastSaved.current = fingerprint(res.project);
+      await refreshSource();
+      setSourceDirty(false);
+      await doCompile();
+      toast.success("Reset to canvas", "Source now mirrors the visual editor again");
+    } catch (err) {
+      toast.error("Reset failed", err instanceof Error ? err.message : undefined);
+    }
+  }, [project, fingerprint, refreshSource, doCompile, toast]);
 
   // auto-compile shortly after the canvas settles
   React.useEffect(() => {
@@ -288,6 +325,59 @@ export default function WorkspacePage() {
       },
       activeId,
     );
+  };
+
+  const insertBullets = () => {
+    insertBlock(
+      {
+        id: `bul-${Math.random().toString(36).slice(2, 10)}`,
+        type: "bullets",
+        items: ["First point", "Second point"],
+      },
+      activeId,
+    );
+  };
+
+  const formatActive = (kind: "bold" | "italic") => {
+    const el = document.activeElement;
+    if (!(el instanceof HTMLTextAreaElement) || !el.dataset.paragraphId) {
+      toast.info("Select text first", "Click a paragraph, select words, then press Bold or Italic.");
+      return;
+    }
+    const id = el.dataset.paragraphId;
+    const block = project?.blocks.find((b) => b.id === id);
+    if (!block || block.type !== "paragraph") return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const marker = kind === "bold" ? "**" : "*";
+    const text = block.text;
+    if (start === end) {
+      toast.info("Select text first", "Highlight the words you want to format.");
+      return;
+    }
+    const next = text.slice(0, start) + marker + text.slice(start, end) + marker + text.slice(end);
+    updateBlocks(project!.blocks.map((b) => (b.id === id ? { ...b, text: next } : b)));
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + marker.length, end + marker.length);
+    });
+  };
+
+  const runPolish = async (options: string[]) => {
+    if (!project) return;
+    const working = toast;
+    working.info("Polishing your document", "Reading paragraphs and drafting edits");
+    try {
+      const res = await api.polish(project.id, options);
+      if (res.changes.length === 0) {
+        toast.success("Nothing to change", "Your text already reads as academic prose.");
+        return;
+      }
+      setPolishResult({ options, changes: res.changes });
+      setPolishOpen(true);
+    } catch (err) {
+      toast.error("Polish failed", err instanceof Error ? err.message : "Try again in a moment.");
+    }
   };
 
   const applyPolish = async (changes: { blockId: string; after: string }[]) => {
@@ -416,8 +506,9 @@ export default function WorkspacePage() {
                     key={t.id}
                     onClick={() => {
                       const settings = { ...project.settings, template: t.id };
-                      setProject((p) => (p ? { ...p, settings } : p));
-                      persist({ settings });
+                      setProject((p) => (p ? { ...p, settings, latexOverride: null } : p));
+                      persist({ settings, clearLatexOverride: true }, `Format: ${t.label}`);
+                      setPdfVersion(Date.now());
                       close();
                     }}
                     icon={project.settings.template === t.id ? <Check size={12} /> : <span className="w-3" />}
@@ -554,9 +645,9 @@ export default function WorkspacePage() {
                 activeId={activeId}
                 onPick={(id) => {
                   setActiveId(id);
-                  const el = document.querySelector<HTMLTextAreaElement>(`[data-block="${id}"]`);
-                  el?.focus();
-                  document.getElementById(`block-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+                  const el = document.getElementById(`block-${id}`);
+                  el?.scrollIntoView({ block: "center", behavior: "smooth" });
+                  el?.querySelector<HTMLElement>("input, textarea")?.focus();
                 }}
                 onAdd={insertHeading}
               />
@@ -636,19 +727,19 @@ export default function WorkspacePage() {
               <div className="flex h-full min-h-0 flex-col">
                 <EditorToolbar
                   onInsert={insertHeading}
-                  onAiAction={(kind) => {
-                    if (kind === "table") setTableOpen(true);
-                    else setPolishOpen(true);
-                  }}
+                  onFormat={(kind) => formatActive(kind)}
+                  onBullets={insertBullets}
+                  onAiAction={(kind) => runPolish(kind === "grammar" ? ["tone"] : ["tone", "headings"])}
                   onFigure={() => setFigureOpen(true)}
                   onEquation={() => setEquationOpen(true)}
                   onTable={() => setTableOpen(true)}
                   onImproveImage={() => {
                     const fig = project.blocks.find((b) => b.type === "figure");
-                    startVectorize(
-                      figures.find((f) => f.name === "tcp-scan-raw.svg")?.svg ?? "",
-                    );
-                    if (!fig) toast.info("No figure yet", "Insert a figure first, then improve it.");
+                    if (!fig) {
+                      toast.info("No figure yet", "Insert a figure first, then improve it.");
+                      return;
+                    }
+                    startVectorize(figures.find((f) => f.name === "tcp-scan-raw.svg")?.svg ?? "");
                   }}
                 />
                 <div className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-canvas px-4 py-5">
@@ -750,13 +841,12 @@ export default function WorkspacePage() {
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    refreshSource();
-                    setSourceDirty(false);
+                    resetToCanvas();
                   }}
                 >
-                  <Undo2 size={11} /> Re-sync from canvas
+                  <Undo2 size={11} /> Reset to canvas
                 </Button>
-                <Button size="sm" onClick={() => doCompile({ fromSource: true })} loading={compiling}>
+                <Button size="sm" onClick={compileAndSaveSource} loading={compiling}>
                   <Sparkles size={11} /> Compile & Save
                 </Button>
               </div>
@@ -783,8 +873,12 @@ export default function WorkspacePage() {
       {/* --------------------------------------------------------- modals */}
       <PolishModal
         open={polishOpen}
-        onClose={() => setPolishOpen(false)}
+        onClose={() => {
+          setPolishOpen(false);
+          setPolishResult(null);
+        }}
         project={project}
+        initial={polishResult}
         onApply={applyPolish}
       />
 

@@ -35,7 +35,7 @@ export function SlashMenu({
       className="absolute z-30 w-[268px] overflow-hidden rounded-[8px] border border-border bg-white py-1 shadow-xl animate-pop-in"
       style={{ top: anchor.top, left: anchor.left }}
     >
-      <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted">
+      <div className="px-2.5 pb-1 pt-1.5 text-[12.5px] font-semibold uppercase tracking-[0.09em] text-muted">
         {query ? `Matching “${query}”` : "Insert block"}
       </div>
       {commands.map((cmd, i) => (
@@ -53,9 +53,9 @@ export function SlashMenu({
             i === activeIndex ? "bg-blue-soft" : "hover:bg-slate-soft",
           )}
         >
-          <span className="font-mono text-[11.5px] font-medium text-blue">/{cmd.id}</span>
-          <span className="text-[12px] text-ink">{cmd.label}</span>
-          <span className="ml-auto text-[10px] text-muted">{cmd.hint}</span>
+          <span className="font-mono text-[14px] font-medium text-blue">/{cmd.id}</span>
+          <span className="text-[14.5px] text-ink">{cmd.label}</span>
+          <span className="ml-auto text-[12.5px] text-muted">{cmd.hint}</span>
         </button>
       ))}
     </div>

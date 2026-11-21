@@ -134,7 +134,7 @@ export function FigureModal({
       description="Drag and drop PNG, JPG or vector SVG. Up to 25MB."
       footer={
         <>
-          <span className="text-[11px] text-muted">
+          <span className="text-[13.5px] text-muted">
             {uploaded ? "New upload" : active ? "From the figure library" : "Pick a figure"}
           </span>
           <div className="flex gap-2">
@@ -166,8 +166,8 @@ export function FigureModal({
         )}
       >
         <Upload size={18} className="mb-1.5 text-watermark" />
-        <p className="text-[12.5px] font-medium text-ink">Drop a file here, or browse</p>
-        <p className="mt-0.5 text-[11px] text-muted">PNG · JPG · SVG · up to 25MB</p>
+        <p className="text-[15px] font-medium text-ink">Drop a file here, or browse</p>
+        <p className="mt-0.5 text-[13.5px] text-muted">PNG · JPG · SVG · up to 25MB</p>
         <Button variant="secondary" size="sm" className="mt-2" onClick={() => fileRef.current?.click()}>
           Browse files
         </Button>
@@ -185,7 +185,7 @@ export function FigureModal({
       </div>
 
       <div className="mb-3">
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+        <p className="mb-1.5 text-[13.5px] font-semibold uppercase tracking-[0.08em] text-muted">
           Figure library
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -208,7 +208,7 @@ export function FigureModal({
                 className="pointer-events-none max-h-[62px] overflow-hidden [&>svg]:h-auto [&>svg]:w-full"
                 dangerouslySetInnerHTML={{ __html: f.svg }}
               />
-              <p className="mt-1 truncate text-[10px] text-slate-mid">{f.label}</p>
+              <p className="mt-1 truncate text-[12.5px] text-slate-mid">{f.label}</p>
             </button>
           ))}
         </div>
@@ -223,7 +223,7 @@ export function FigureModal({
           />
         </Field>
         <div>
-          <p className="mb-1.5 text-[12.5px] font-medium text-slate-mid">Layout width</p>
+          <p className="mb-1.5 text-[15px] font-medium text-slate-mid">Layout width</p>
           <div className="flex flex-wrap gap-3 pt-1.5">
             {(["50", "80", "full"] as const).map((w) => (
               <Radio
@@ -240,8 +240,8 @@ export function FigureModal({
 
       <div className="mt-3 flex items-center justify-between rounded-[6px] border border-ai-line bg-ai-soft px-3 py-2">
         <div>
-          <p className="text-[12px] font-medium text-ai">Improve image with AI</p>
-          <p className="text-[10.5px] text-[#6d28d9]/80">Turn a scan into a sharp, scalable diagram.</p>
+          <p className="text-[14.5px] font-medium text-ai">Improve image with AI</p>
+          <p className="text-[13px] text-[#6d28d9]/80">Turn a scan into a sharp, scalable diagram.</p>
         </div>
         <Button variant="ai" size="sm" onClick={improve} loading={vectorizing}>
           {vectorizing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -251,7 +251,7 @@ export function FigureModal({
 
       {active ? (
         <div className="mt-3">
-          <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted">Preview</p>
+          <p className="mb-1 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">Preview</p>
           <div className="grid max-h-[170px] place-items-center overflow-hidden rounded-[6px] border border-border bg-white p-2">
             {active.svg ? (
               <div
@@ -259,7 +259,7 @@ export function FigureModal({
                 dangerouslySetInnerHTML={{ __html: active.svg }}
               />
             ) : (
-              <div className="flex items-center gap-2 text-[11.5px] text-muted">
+              <div className="flex items-center gap-2 text-[14px] text-muted">
                 <ImagePlus size={14} /> {uploaded?.name}
               </div>
             )}

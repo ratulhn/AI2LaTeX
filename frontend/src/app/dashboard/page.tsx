@@ -8,11 +8,13 @@ import {
   BookOpen,
   Camera,
   ChevronDown,
+  Copy,
   FileUp,
   FileText,
   LayoutTemplate,
   Loader2,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Sparkles,
@@ -59,7 +61,7 @@ function ProjectThumb({ project }: { project: Project }) {
   const hasEq = project.blocks.some((b) => b.type === "equation");
   return (
     <div className="relative h-[104px] overflow-hidden rounded-t-[8px] border-b border-border bg-[#fbfbfd] px-3 py-2.5">
-      <p className="mb-1 text-[6px] uppercase tracking-[0.16em] text-[#94a3b8]">AI2LaTeX · academic</p>
+      <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[#94a3b8]">AI2LaTeX · academic</p>
       <p
         className="mb-1 truncate text-[7.5px] font-semibold text-[#0f172a]"
         style={{ fontFamily: "var(--font-paper)" }}
@@ -78,7 +80,7 @@ function ProjectThumb({ project }: { project: Project }) {
           "Start writing to see a preview of the compiled page."}
       </p>
       {hasEq ? (
-        <p className="mt-1 text-center text-[8px] text-[#002855]" style={{ fontFamily: "var(--font-paper)" }}>
+        <p className="mt-1 text-center text-[11px] text-[#002855]" style={{ fontFamily: "var(--font-paper)" }}>
           T ≈ W / RTT
         </p>
       ) : null}
@@ -103,6 +105,10 @@ export default function DashboardPage() {
   const [starter, setStarter] = React.useState<"blank" | "outline" | "template">("outline");
   const [upgradeOpen, setUpgradeOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState<Project | null>(null);
+  const [renameTarget, setRenameTarget] = React.useState<Project | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
+  const [renaming, setRenaming] = React.useState(false);
+  const [duplicatingId, setDuplicatingId] = React.useState<string | null>(null);
   const [searchFocused, setSearchFocused] = React.useState(false);
 
   React.useEffect(() => {
@@ -173,13 +179,52 @@ export default function DashboardPage() {
     }
   };
 
+  const rename = async () => {
+    if (!renameTarget) return;
+    const title = renameValue.trim();
+    if (!title) {
+      toast.warning("Title is required", "Enter a name for the document.");
+      return;
+    }
+    setRenaming(true);
+    try {
+      const res = await api.updateProject(renameTarget.id, { title });
+      setProjects((p) => p.map((x) => (x.id === res.project.id ? res.project : x)));
+      toast.success("Project renamed", res.project.title);
+      setRenameTarget(null);
+    } catch (err) {
+      toast.error("Rename failed", err instanceof Error ? err.message : undefined);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const duplicate = async (project: Project) => {
+    setDuplicatingId(project.id);
+    try {
+      const res = await api.duplicateProject(project.id);
+      setProjects((p) => [res.project, ...p]);
+      toast.success("Project duplicated", res.project.title);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not duplicate the project";
+      if (message.toLowerCase().includes("upgrade") || message.toLowerCase().includes("free projects")) {
+        setUpgradeOpen(true);
+        toast.warning("Project limit reached", message);
+      } else {
+        toast.error("Duplicate failed", message);
+      }
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   if (!ready || loading) {
     return (
       <div className="min-h-screen bg-canvas">
         <div className="grid h-screen place-items-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 size={20} className="animate-spin text-watermark" />
-            <p className="text-[12.5px] text-muted">Loading your workspace…</p>
+            <p className="text-[15px] text-muted">Loading your workspace…</p>
           </div>
         </div>
       </div>
@@ -196,7 +241,7 @@ export default function DashboardPage() {
         <div className="mx-auto flex h-[58px] max-w-[1240px] items-center justify-between gap-4 px-5">
           <div className="flex items-center gap-4">
             <Logo size={26} />
-            <span className="hidden text-[11px] text-muted sm:inline">
+            <span className="hidden text-[13.5px] text-muted sm:inline">
               Personal Workspace · Student
             </span>
           </div>
@@ -212,7 +257,7 @@ export default function DashboardPage() {
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               placeholder="Search previous documents, topics, or formulas…"
-              className="h-9 w-full rounded-[8px] border border-border bg-canvas pl-8 pr-12 text-[12.5px] outline-none transition-colors focus:border-blue focus:bg-white focus:ring-2 focus:ring-blue/15"
+              className="h-9 w-full rounded-[8px] border border-border bg-canvas pl-8 pr-12 text-[15px] outline-none transition-colors focus:border-blue focus:bg-white focus:ring-2 focus:ring-blue/15"
             />
             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-[4px] border border-border bg-white px-1 py-[1px] font-mono text-[9.5px] text-muted">
               ⌘K
@@ -223,14 +268,14 @@ export default function DashboardPage() {
                   <button
                     key={p.id}
                     onClick={() => router.push(`/workspace/${p.id}`)}
-                    className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-left text-[12px] text-slate-mid hover:bg-slate-soft"
+                    className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-left text-[14.5px] text-slate-mid hover:bg-slate-soft"
                   >
                     <FileText size={11} className="text-muted" />
                     <span className="truncate">{p.title}</span>
                   </button>
                 ))}
                 {filtered.length === 0 ? (
-                  <p className="px-2 py-3 text-center text-[11.5px] text-muted">No matches</p>
+                  <p className="px-2 py-3 text-center text-[14px] text-muted">No matches</p>
                 ) : null}
               </div>
             ) : null}
@@ -239,7 +284,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-[8px] border border-border bg-canvas px-2.5 py-1.5 sm:flex">
               <Sparkles size={11} className="text-ai" />
-              <span className="text-[10.5px] text-slate-mid">
+              <span className="text-[13px] text-slate-mid">
                 Free Tier:{" "}
                 <span className="font-semibold text-ink">
                   {user?.credits ?? 0}/20
@@ -260,7 +305,7 @@ export default function DashboardPage() {
                       .join("")
                       .slice(0, 2)}
                   </span>
-                  <span className="hidden text-[11.5px] font-medium text-ink sm:inline">
+                  <span className="hidden text-[14px] font-medium text-ink sm:inline">
                     {user?.name?.split(" ")[0]}
                   </span>
                   <ChevronDown size={11} className="text-muted" />
@@ -302,7 +347,7 @@ export default function DashboardPage() {
             <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-ink">
               Good afternoon, {user?.name?.split(" ")[0] ?? "Alex"} <span className="text-ai">✦</span>
             </h1>
-            <p className="mt-1 text-[12.5px] text-muted">
+            <p className="mt-1 text-[15px] text-muted">
               1 Start a document <span className="text-border">→</span> 2 Write or ask AI{" "}
               <span className="text-border">→</span> 3 Download your PDF
             </p>
@@ -319,7 +364,7 @@ export default function DashboardPage() {
 
         {/* create & import */}
         <section className="mb-7">
-          <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
+          <p className="mb-2.5 text-[12.5px] font-semibold uppercase tracking-[0.1em] text-muted">
             Create & import
           </p>
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
@@ -370,8 +415,8 @@ export default function DashboardPage() {
                 <span className="mb-2 inline-grid h-7 w-7 place-items-center rounded-[6px] bg-canvas text-slate-mid transition-colors group-hover:bg-blue-soft group-hover:text-blue">
                   {card.icon}
                 </span>
-                <p className="text-[13px] font-medium text-ink">{card.title}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-muted">{card.body}</p>
+                <p className="text-[15.5px] font-medium text-ink">{card.title}</p>
+                <p className="mt-0.5 text-[13.5px] leading-relaxed text-muted">{card.body}</p>
               </button>
             ))}
           </div>
@@ -388,7 +433,7 @@ export default function DashboardPage() {
             <Badge tone="success" dot="#10b981">
               Ready · {projects.length} projects
             </Badge>
-            <button className="inline-flex h-8 items-center gap-1 rounded-[6px] border border-border bg-white px-2 text-[11px] text-slate-mid hover:border-slate-300">
+            <button className="inline-flex h-8 items-center gap-1 rounded-[6px] border border-border bg-white px-2 text-[13.5px] text-slate-mid hover:border-slate-300">
               Sort: Last Edited <ChevronDown size={10} />
             </button>
           </div>
@@ -396,12 +441,12 @@ export default function DashboardPage() {
 
         {freeLimitReached ? (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-warning/40 bg-warning-soft px-3 py-2">
-            <p className="text-[11.5px] text-warning-deep">
+            <p className="text-[14px] text-warning-deep">
               3 of 3 free projects used. Open a project below, or upgrade to create more.
             </p>
             <button
               onClick={() => setUpgradeOpen(true)}
-              className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-warning-deep hover:underline"
+              className="inline-flex items-center gap-1 text-[14px] font-semibold text-warning-deep hover:underline"
             >
               Upgrade <ArrowRight size={10} />
             </button>
@@ -412,10 +457,10 @@ export default function DashboardPage() {
         {filtered.length === 0 ? (
           <div className="rounded-[8px] border border-dashed border-border bg-white/70 py-14 text-center">
             <BookOpen size={22} className="mx-auto mb-2 text-watermark" />
-            <p className="text-[13.5px] font-medium text-ink">
+            <p className="text-[16px] font-medium text-ink">
               {query ? "No documents match your search" : "No projects here yet"}
             </p>
-            <p className="mt-1 text-[12px] text-muted">
+            <p className="mt-1 text-[14.5px] text-muted">
               {query ? "Try a different topic or formula." : "Create a document to get started."}
             </p>
             {!query ? (
@@ -437,7 +482,7 @@ export default function DashboardPage() {
                 <div className="p-3">
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/workspace/${project.id}`} className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-ink group-hover:text-blue">
+                      <p className="truncate text-[15.5px] font-semibold text-ink group-hover:text-blue">
                         {project.title}
                       </p>
                     </Link>
@@ -467,12 +512,35 @@ export default function DashboardPage() {
                             Open
                           </MenuItem>
                           <MenuItem
+                            icon={<Pencil size={12} />}
+                            onClick={() => {
+                              setRenameValue(project.title);
+                              setRenameTarget(project);
+                              close();
+                            }}
+                          >
+                            Rename
+                          </MenuItem>
+                          <MenuItem
+                            icon={<Copy size={12} />}
+                            disabled={duplicatingId === project.id}
+                            onClick={() => {
+                              close();
+                              duplicate(project);
+                            }}
+                          >
+                            Duplicate
+                          </MenuItem>
+                          <MenuSeparator />
+                          <MenuItem
                             icon={<Download size={12} />}
                             onClick={() => {
-                              downloadExport(project.id, "tex").catch(() =>
-                                toast.error("Export failed"),
-                              );
                               close();
+                              downloadExport(project.id, "tex")
+                                .then(() => toast.success("LaTeX exported", project.title))
+                                .catch((err) =>
+                                  toast.error("Export failed", err instanceof Error ? err.message : undefined),
+                                );
                             }}
                           >
                             Export .tex
@@ -480,8 +548,8 @@ export default function DashboardPage() {
                           <MenuItem
                             icon={<FileText size={12} />}
                             onClick={() => {
-                              window.open(api.pdfUrl(project.id), "_blank");
                               close();
+                              window.open(api.pdfUrl(project.id), "_blank", "noopener");
                             }}
                           >
                             Download PDF
@@ -505,7 +573,7 @@ export default function DashboardPage() {
                     <span className="rounded-[999px] border border-border bg-canvas px-1.5 py-[1px] text-[9.5px] text-slate-mid">
                       {KIND_BADGE[projectKind(project.kind)] ?? project.kind}
                     </span>
-                    <span className="text-[10px] text-muted">
+                    <span className="text-[12.5px] text-muted">
                       Edited {relativeTime(project.updatedAt)} • {project.pageCount} pages •{" "}
                       {project.wordCount.toLocaleString()} words
                     </span>
@@ -516,7 +584,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-[11px] text-muted">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-[13.5px] text-muted">
           <p>Your research, organized. All changes saved automatically.</p>
           <div className="flex gap-3">
             <button className="hover:text-ink">Keyboard shortcuts</button>
@@ -535,7 +603,7 @@ export default function DashboardPage() {
         description="Pick a starting point. Everything stays editable afterwards."
         footer={
           <>
-            <span className="text-[11px] text-muted">
+            <span className="text-[13.5px] text-muted">
               {usedProjects}/3 free projects used
             </span>
             <div className="flex gap-2">
@@ -561,14 +629,14 @@ export default function DashboardPage() {
           </Field>
 
           <div>
-            <p className="mb-1.5 text-[12.5px] font-medium text-slate-mid">Type</p>
+            <p className="mb-1.5 text-[15px] font-medium text-slate-mid">Type</p>
             <div className="flex flex-wrap gap-1.5">
               {["Paper", "Assignment", "Scanned Notes"].map((k) => (
                 <button
                   key={k}
                   onClick={() => setNewKind(k)}
                   className={cn(
-                    "rounded-[999px] border px-2.5 py-1 text-[11.5px]",
+                    "rounded-[999px] border px-2.5 py-1 text-[14px]",
                     newKind === k
                       ? "border-blue bg-blue-soft text-blue"
                       : "border-border bg-white text-slate-mid hover:border-slate-300",
@@ -581,7 +649,7 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <p className="mb-1.5 text-[12.5px] font-medium text-slate-mid">Starting point</p>
+            <p className="mb-1.5 text-[15px] font-medium text-slate-mid">Starting point</p>
             <div className="space-y-1.5">
               {[
                 { id: "outline" as const, title: "Structured outline", body: "Introduction, Methods, Results, Discussion, References." },
@@ -607,8 +675,8 @@ export default function DashboardPage() {
                     {starter === s.id ? <span className="h-1.5 w-1.5 rounded-full bg-blue" /> : null}
                   </span>
                   <span>
-                    <span className="block text-[12.5px] font-medium text-ink">{s.title}</span>
-                    <span className="block text-[11px] text-muted">{s.body}</span>
+                    <span className="block text-[15px] font-medium text-ink">{s.title}</span>
+                    <span className="block text-[13.5px] text-muted">{s.body}</span>
                   </span>
                 </button>
               ))}
@@ -626,6 +694,40 @@ export default function DashboardPage() {
         confirmLabel="Delete project"
         danger
       />
+
+      <Modal
+        open={!!renameTarget}
+        onClose={() => !renaming && setRenameTarget(null)}
+        width="sm"
+        eyebrow="Rename"
+        title="Rename document"
+        footer={
+          <>
+            <span />
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setRenameTarget(null)} disabled={renaming}>
+                Cancel
+              </Button>
+              <Button onClick={rename} loading={renaming} disabled={!renameValue.trim()}>
+                Save name
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <Field label="Document title" htmlFor="rename-title">
+          <Input
+            id="rename-title"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") rename();
+            }}
+            autoFocus
+            maxLength={200}
+          />
+        </Field>
+      </Modal>
 
       <UpgradeModal
         open={upgradeOpen}

@@ -73,7 +73,7 @@ export function Modal({
             {eyebrow ? (
               <div
                 className={cn(
-                  "mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em]",
+                  "mb-1.5 text-[13px] font-semibold uppercase tracking-[0.1em]",
                   tone === "ai" ? "text-ai" : "text-muted",
                 )}
               >
@@ -82,7 +82,7 @@ export function Modal({
             ) : null}
             <h2 className="text-[16px] font-semibold leading-tight text-ink">{title}</h2>
             {description ? (
-              <p className="mt-1 text-[12.5px] leading-relaxed text-muted">{description}</p>
+              <p className="mt-1 text-[15px] leading-relaxed text-muted">{description}</p>
             ) : null}
           </div>
           <button
@@ -135,7 +135,7 @@ export function ConfirmDialog({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="h-9 rounded-[6px] border border-border bg-white px-3 text-[12.5px] font-medium text-slate-mid hover:bg-slate-soft"
+              className="h-9 rounded-[6px] border border-border bg-white px-3 text-[15px] font-medium text-slate-mid hover:bg-slate-soft"
             >
               Cancel
             </button>
@@ -145,7 +145,7 @@ export function ConfirmDialog({
                 onClose();
               }}
               className={cn(
-                "h-9 rounded-[6px] px-3 text-[12.5px] font-medium text-white",
+                "h-9 rounded-[6px] px-3 text-[15px] font-medium text-white",
                 danger ? "bg-danger hover:bg-[#b91c1c]" : "bg-blue hover:bg-blue-hover",
               )}
             >
@@ -155,7 +155,7 @@ export function ConfirmDialog({
         </>
       }
     >
-      <p className="text-[13px] leading-relaxed text-slate-mid">
+      <p className="text-[15.5px] leading-relaxed text-slate-mid">
         {description ?? "This action cannot be undone."}
       </p>
     </Modal>

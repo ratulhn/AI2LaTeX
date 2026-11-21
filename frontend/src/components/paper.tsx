@@ -55,7 +55,7 @@ export function FigurePlaceholder({
     );
   }
   return (
-    <div className="mx-auto grid h-[150px] w-full max-w-[420px] place-items-center rounded-[4px] border border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[11px] text-muted">
+    <div className="mx-auto grid h-[150px] w-full max-w-[420px] place-items-center rounded-[4px] border border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[13.5px] text-muted">
       {block.assetId || "figure"}
     </div>
   );
@@ -243,7 +243,7 @@ export function PaperContent({
           case "pagebreak":
             return (
               <div key={block.id} className="my-4 border-t border-dashed border-[#cbd5e1] text-center">
-                <span className="relative -top-2 bg-white px-2 text-[9px] uppercase tracking-widest text-muted">
+                <span className="relative -top-2 bg-white px-2 text-[12px] uppercase tracking-widest text-muted">
                   page break
                 </span>
               </div>

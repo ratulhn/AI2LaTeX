@@ -34,7 +34,7 @@ export function RequireAuth({ children }: { children: (user: User) => React.Reac
       <div className="grid h-screen place-items-center bg-canvas">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={20} className="animate-spin text-watermark" />
-          <p className="text-[12.5px] text-muted">Preparing your workspace…</p>
+          <p className="text-[15px] text-muted">Preparing your workspace…</p>
         </div>
       </div>
     );

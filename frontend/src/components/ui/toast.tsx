@@ -79,9 +79,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <span className="mt-[1px] shrink-0">{ICONS[t.tone]}</span>
             <div className="min-w-0 flex-1">
-              <p className="text-[12.5px] font-medium leading-snug">{t.title}</p>
+              <p className="text-[15px] font-medium leading-snug">{t.title}</p>
               {t.description ? (
-                <p className="mt-0.5 text-[11.5px] leading-snug opacity-80">{t.description}</p>
+                <p className="mt-0.5 text-[14px] leading-snug opacity-80">{t.description}</p>
               ) : null}
               {t.action ? (
                 <button
@@ -89,7 +89,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     t.action?.onClick();
                     remove(t.id);
                   }}
-                  className="mt-1.5 text-[11.5px] font-semibold underline underline-offset-2"
+                  className="mt-1.5 text-[14px] font-semibold underline underline-offset-2"
                 >
                   {t.action.label}
                 </button>

@@ -293,13 +293,27 @@ def test_signup_verified_email_conflicts(client, monkeypatch):
     assert again.json()["detail"] == "That email already has a workspace. Sign in instead."
 
 
-def test_signup_unverified_email_resends_same_shape(client, monkeypatch):
+def test_signup_unverified_email_requires_the_right_password(client, monkeypatch):
+    """A pending account can only be re-verified by its owner.
+
+    Regression guard: returning a pending token (and, in dev delivery, the code)
+    for an existing unverified email without checking the password let anyone who
+    knew an address take the account over.
+    """
     email, first = signup(client, monkeypatch)
     assert first.status_code == 200
     # Allow the 30s resend window to have elapsed for this user.
     uid = auth_mod.read_pending_token(first.json()["pendingToken"])["sub"]
     set_resend_elapsed(str(uid))
-    _, second = signup(client, monkeypatch, email=email, password="different-pass-1")
+
+    # Wrong password must be refused, and must not leak a pending token/code.
+    _, wrong = signup(client, monkeypatch, email=email, password="different-pass-1")
+    assert wrong.status_code == 401
+    assert "pendingToken" not in wrong.json()
+    assert "devCode" not in wrong.json()
+
+    # The correct password gets the same verification shape as before.
+    _, second = signup(client, monkeypatch, email=email, password="password123")
     assert second.status_code == 200
     body = second.json()
     assert body["needsVerification"] is True
@@ -443,7 +457,7 @@ def test_verify_email_expired_pending_token(client, monkeypatch):
     import hmac as _hmac
 
     sig = sec._b64(
-        _hmac.new(sec._SECRET.encode(), body_part.encode(), _hashlib.sha256).digest()
+        _hmac.new(sec._secret(), body_part.encode(), _hashlib.sha256).digest()
     )
     aged = f"{body_part}.{sig}"
     assert auth_mod.read_pending_token(aged) is None

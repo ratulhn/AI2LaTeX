@@ -172,20 +172,12 @@ export default function SignUpPage() {
           disabled={loading}
           clearSignal={captchaClearSignal}
         />
-        {captchaError ? (
-          <p
-            role="alert"
-            className="-mt-1 rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger"
-          >
-            {captchaError}
-          </p>
-        ) : null}
 
         <Checkbox
           checked={agree}
           onChange={setAgree}
           label={
-            <span className="text-[11.5px]">
+            <span className="text-[14px]">
               I agree to the Terms of Service and Privacy Policy
             </span>
           }
@@ -194,7 +186,7 @@ export default function SignUpPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[11.5px] text-danger"
+            className="rounded-[6px] border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-[14px] text-danger"
           >
             {error}
           </p>
@@ -205,7 +197,7 @@ export default function SignUpPage() {
         </Button>
       </form>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-muted">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted">
         <span className="inline-flex items-center gap-1">
           <Check size={10} className="text-success" /> No credit card required
         </span>
@@ -214,7 +206,7 @@ export default function SignUpPage() {
         </span>
       </div>
 
-      <p className="mt-4 text-center text-[11.5px] text-muted">
+      <p className="mt-4 text-center text-[14px] text-muted">
         Already have an account?{" "}
         <Link href="/auth/sign-in" className="font-medium text-blue hover:underline">
           Sign in to your workspace

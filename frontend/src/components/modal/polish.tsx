@@ -20,11 +20,13 @@ export function PolishModal({
   onClose,
   project,
   onApply,
+  initial,
 }: {
   open: boolean;
   onClose: () => void;
   project: Project;
   onApply: (changes: PolishChange[]) => Promise<void>;
+  initial?: { options: string[]; changes: PolishChange[] } | null;
 }) {
   const [selected, setSelected] = React.useState<string[]>(["tone", "headings", "symbols"]);
   const [state, setState] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -34,13 +36,19 @@ export function PolishModal({
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (open && initial) {
+      setSelected(initial.options);
+      setChanges(initial.changes);
+      setRejected(new Set());
+      setState("ready");
+    }
     if (!open) {
       setState("idle");
       setChanges([]);
       setRejected(new Set());
       setError(null);
     }
-  }, [open]);
+  }, [open, initial]);
 
   const run = async () => {
     setState("loading");
@@ -68,7 +76,7 @@ export function PolishModal({
       description="Facts, numbers and citations are locked. Only tone, structure and notation change."
       footer={
         <>
-          <span className="text-[11px] text-muted">
+          <span className="text-[13.5px] text-muted">
             {state === "ready"
               ? `${accepted.length} of ${changes.length} refinements selected`
               : "Nothing is applied until you accept"}
@@ -109,7 +117,7 @@ export function PolishModal({
               }
               title={opt.hint}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-[999px] border px-2.5 py-1 text-[11.5px] transition-colors",
+                "inline-flex items-center gap-1.5 rounded-[999px] border px-2.5 py-1 text-[14px] transition-colors",
                 on
                   ? "border-ai-line bg-ai-soft text-ai"
                   : "border-border bg-white text-slate-mid hover:border-slate-300",
@@ -132,8 +140,8 @@ export function PolishModal({
       {state === "idle" ? (
         <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-border bg-canvas/60 py-10 text-center">
           <Wand2 size={20} className="mb-2 text-ai" />
-          <p className="text-[13px] font-medium text-ink">Ready when you are</p>
-          <p className="mt-1 max-w-sm text-[12px] leading-relaxed text-muted">
+          <p className="text-[15.5px] font-medium text-ink">Ready when you are</p>
+          <p className="mt-1 max-w-sm text-[14.5px] leading-relaxed text-muted">
             The Document Doctor reads your canvas, proposes edits, and shows a side-by-side
             before/after for each one. Technical meaning and citations are preserved.
           </p>
@@ -151,7 +159,7 @@ export function PolishModal({
               <div className="skeleton h-2.5 w-[88%] rounded" />
             </div>
           ))}
-          <p className="flex items-center justify-center gap-1.5 pt-2 text-[11.5px] text-muted">
+          <p className="flex items-center justify-center gap-1.5 pt-2 text-[14px] text-muted">
             <Loader2 size={12} className="animate-spin" /> Reading paragraphs and drafting edits…
           </p>
         </div>
@@ -159,8 +167,8 @@ export function PolishModal({
 
       {state === "error" ? (
         <div className="rounded-[8px] border border-[#fecaca] bg-[#fef2f2] p-3">
-          <p className="text-[12.5px] font-medium text-danger">Could not run polish</p>
-          <p className="mt-1 text-[11.5px] text-[#991b1b]">{error}</p>
+          <p className="text-[15px] font-medium text-danger">Could not run polish</p>
+          <p className="mt-1 text-[14px] text-[#991b1b]">{error}</p>
           <Button variant="secondary" size="sm" className="mt-2" onClick={run}>
             Try again
           </Button>
@@ -169,7 +177,7 @@ export function PolishModal({
 
       {state === "ready" ? (
         changes.length === 0 ? (
-          <div className="rounded-[8px] border border-[#a7f3d0] bg-success-soft p-3 text-[12.5px] text-success-deep">
+          <div className="rounded-[8px] border border-[#a7f3d0] bg-success-soft p-3 text-[15px] text-success-deep">
             <Check size={13} className="mr-1 inline" />
             Your document already reads as academic prose. Nothing to change.
           </div>
@@ -186,7 +194,7 @@ export function PolishModal({
                   )}
                 >
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    <span className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-muted">
                       {c.reason}
                     </span>
                     <button
@@ -199,7 +207,7 @@ export function PolishModal({
                         })
                       }
                       className={cn(
-                        "rounded-[4px] px-1.5 py-[2px] text-[10.5px] font-medium",
+                        "rounded-[4px] px-1.5 py-[2px] text-[13px] font-medium",
                         isRejected
                           ? "bg-slate-soft text-slate-mid"
                           : "bg-[#fef2f2] text-danger hover:bg-[#fee2e2]",
@@ -213,7 +221,7 @@ export function PolishModal({
                       <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-danger">
                         Before −
                       </p>
-                      <p className="text-[11.5px] leading-relaxed text-[#7f1d1d] line-through decoration-danger/30">
+                      <p className="text-[14px] leading-relaxed text-[#7f1d1d] line-through decoration-danger/30">
                         {c.before}
                       </p>
                     </div>
@@ -221,13 +229,13 @@ export function PolishModal({
                       <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-[0.09em] text-success-deep">
                         After +
                       </p>
-                      <p className="text-[11.5px] leading-relaxed text-[#064e3b]">{c.after}</p>
+                      <p className="text-[14px] leading-relaxed text-[#064e3b]">{c.after}</p>
                     </div>
                   </div>
                 </div>
               );
             })}
-            <p className="flex items-center gap-1.5 pt-1 text-[10.5px] text-muted">
+            <p className="flex items-center gap-1.5 pt-1 text-[13px] text-muted">
               <ArrowRight size={10} />
               {changes.length} refinements · Technical meaning and citations preserved
             </p>

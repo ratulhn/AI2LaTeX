@@ -45,14 +45,14 @@ function MiniPaper({ label, variant }: { label: string; variant: "rough" | "clea
       } p-2.5`}
     >
       <p
-        className={`mb-1.5 text-[7px] uppercase tracking-[0.12em] ${
+        className={`mb-1.5 text-[10.5px] uppercase tracking-[0.12em] ${
           rough ? "text-[#a1a1aa]" : "text-muted"
         }`}
       >
         {label}
       </p>
       <p
-        className={`mb-1 ${rough ? "text-[9px] text-[#3f3f46]" : "text-[9.5px] font-semibold text-ink"}`}
+        className={`mb-1 ${rough ? "text-[12px] text-[#3f3f46]" : "text-[9.5px] font-semibold text-ink"}`}
         style={rough ? { fontFamily: "cursive" } : { fontFamily: "var(--font-paper)" }}
       >
         {rough ? "1.0 transport layer proto" : "1.0 Transport Layer Protocols"}
@@ -74,7 +74,7 @@ function MiniPaper({ label, variant }: { label: string; variant: "rough" | "clea
         }`}
       >
         <span
-          className={`text-[10px] ${rough ? "text-[#71717a]" : "font-medium text-[#002855]"}`}
+          className={`text-[12.5px] ${rough ? "text-[#71717a]" : "font-medium text-[#002855]"}`}
           style={{ fontFamily: "var(--font-paper)" }}
         >
           T ≈ W / RTT
@@ -93,7 +93,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-30 border-b border-border/70 bg-white/85 backdrop-blur">
         <div className="mx-auto flex h-[58px] max-w-[1100px] items-center justify-between px-5">
           <Logo size={26} />
-          <nav className="hidden items-center gap-6 text-[12.5px] text-slate-mid md:flex">
+          <nav className="hidden items-center gap-6 text-[15px] text-slate-mid md:flex">
             <a href="#how" className="hover:text-ink">
               How it works
             </a>
@@ -131,7 +131,7 @@ export default function LandingPage() {
       <section className="mx-auto max-w-[1100px] px-5 pb-12 pt-14">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <p className="mb-3 inline-flex items-center gap-1.5 rounded-[999px] border border-border bg-canvas px-2.5 py-1 text-[10.5px] font-medium uppercase tracking-[0.09em] text-muted">
+            <p className="mb-3 inline-flex items-center gap-1.5 rounded-[999px] border border-border bg-canvas px-2.5 py-1 text-[13px] font-medium uppercase tracking-[0.09em] text-muted">
               <Sparkles size={10} className="text-ai" />
               Your notes. Clearer documents.
             </p>
@@ -156,7 +156,7 @@ export default function LandingPage() {
                 </Button>
               </Link>
             </div>
-            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-muted">
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[14px] text-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-[5px] w-[5px] rounded-full bg-success" /> 20 free monthly AI credits
               </span>
@@ -177,18 +177,18 @@ export default function LandingPage() {
             </div>
             <div className="relative mt-2.5 rounded-[10px] border border-border bg-white p-3 shadow-sm">
               <div className="flex items-start gap-2">
-                <span className="mt-[2px] grid h-5 w-5 shrink-0 place-items-center rounded-full bg-ink text-[8px] font-semibold text-white">
+                <span className="mt-[2px] grid h-5 w-5 shrink-0 place-items-center rounded-full bg-ink text-[11px] font-semibold text-white">
                   Σ
                 </span>
                 <div>
-                  <p className="text-[11.5px] font-medium text-ink">
+                  <p className="text-[14px] font-medium text-ink">
                     Compare TCP and UDP in simple terms.
                   </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-slate-mid">
+                  <p className="mt-1 text-[13.5px] leading-relaxed text-slate-mid">
                     TCP checks that data arrives in order. UDP sends data faster, without checking
                     delivery.
                   </p>
-                  <button className="mt-1.5 inline-flex items-center gap-1 rounded-[5px] bg-ai px-1.5 py-[3px] text-[10px] font-medium text-white">
+                  <button className="mt-1.5 inline-flex items-center gap-1 rounded-[5px] bg-ai px-1.5 py-[3px] text-[12.5px] font-medium text-white">
                     <Plus /> Add this answer to my document
                   </button>
                 </div>
@@ -203,11 +203,11 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-[1100px] gap-6 px-5 py-12 md:grid-cols-3">
           {STEPS.map((s) => (
             <div key={s.no}>
-              <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-blue">
+              <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-blue">
                 {s.no}
               </p>
               <h3 className="text-[14.5px] font-semibold text-ink">{s.title}</h3>
-              <p className="mt-1.5 text-[12.5px] leading-relaxed text-slate-mid">{s.body}</p>
+              <p className="mt-1.5 text-[15px] leading-relaxed text-slate-mid">{s.body}</p>
             </div>
           ))}
         </div>
@@ -216,7 +216,7 @@ export default function LandingPage() {
       {/* features */}
       <section id="features" className="mx-auto max-w-[1100px] px-5 py-14">
         <div className="mb-8 max-w-[540px]">
-          <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted">
+          <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-muted">
             The four pillars
           </p>
           <h2 className="text-[26px] font-semibold leading-tight tracking-[-0.015em] text-ink">
@@ -262,8 +262,8 @@ export default function LandingPage() {
                   {f.tag}
                 </span>
               </div>
-              <h3 className="text-[13.5px] font-semibold text-ink">{f.title}</h3>
-              <p className="mt-1 text-[12px] leading-relaxed text-slate-mid">{f.body}</p>
+              <h3 className="text-[16px] font-semibold text-ink">{f.title}</h3>
+              <p className="mt-1 text-[14.5px] leading-relaxed text-slate-mid">{f.body}</p>
             </div>
           ))}
         </div>
@@ -276,8 +276,8 @@ export default function LandingPage() {
           ].map((f) => (
             <div key={f.title} className="rounded-[8px] border border-border bg-white p-3">
               <span className="mb-1.5 inline-block text-ai">{f.icon}</span>
-              <h3 className="text-[12.5px] font-semibold text-ink">{f.title}</h3>
-              <p className="mt-0.5 text-[11.5px] leading-relaxed text-muted">{f.body}</p>
+              <h3 className="text-[15px] font-semibold text-ink">{f.title}</h3>
+              <p className="mt-0.5 text-[14px] leading-relaxed text-muted">{f.body}</p>
             </div>
           ))}
         </div>
@@ -290,7 +290,7 @@ export default function LandingPage() {
             <h2 className="text-[24px] font-semibold tracking-[-0.015em] text-white">
               Clarity in the interface. Rigor on the page.
             </h2>
-            <p className="mt-1.5 max-w-[440px] text-[12.5px] leading-relaxed text-white/60">
+            <p className="mt-1.5 max-w-[440px] text-[15px] leading-relaxed text-white/60">
               Publication-ready PDFs, real LaTeX you can inspect, and three free projects to try it
               on.
             </p>
@@ -304,7 +304,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-border bg-white">
-        <div className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-3 px-5 py-6 text-[11.5px] text-muted">
+        <div className="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-3 px-5 py-6 text-[14px] text-muted">
           <Logo size={20} />
           <p>Built as an academic document prototype · 2026</p>
           <div className="flex gap-4">

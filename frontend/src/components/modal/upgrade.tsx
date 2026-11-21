@@ -80,10 +80,10 @@ export function UpgradeModal({
       description="Find the right workspace for your publication journey."
       footer={
         <>
-          <span className="text-[10.5px] text-muted">
+          <span className="text-[13px] text-muted">
             Secure checkout with Stripe · Cancel anytime · Student discounts supported
           </span>
-          <span className="text-[10.5px] text-muted">Prototype: switches the plan instantly.</span>
+          <span className="text-[13px] text-muted">Prototype: switches the plan instantly.</span>
         </>
       }
     >
@@ -105,17 +105,17 @@ export function UpgradeModal({
                   Most popular
                 </span>
               ) : null}
-              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-muted">
+              <p className="text-[12.5px] font-semibold uppercase tracking-[0.09em] text-muted">
                 {plan.kicker}
               </p>
               <h3 className="mt-1 text-[15px] font-semibold text-ink">{plan.name}</h3>
               <p className="mt-1 flex items-baseline gap-0.5">
                 <span className="text-[26px] font-semibold tracking-[-0.02em] text-ink">{plan.price}</span>
-                <span className="text-[11.5px] text-muted">{plan.period}</span>
+                <span className="text-[14px] text-muted">{plan.period}</span>
               </p>
               <ul className="mt-3 flex-1 space-y-1.5">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-1.5 text-[11.5px] leading-snug text-slate-mid">
+                  <li key={f} className="flex items-start gap-1.5 text-[14px] leading-snug text-slate-mid">
                     <Check size={12} className="mt-[1px] shrink-0 text-success-deep" />
                     {f}
                   </li>
@@ -136,7 +136,7 @@ export function UpgradeModal({
           );
         })}
       </div>
-      <p className="mt-3 flex items-center gap-1.5 text-[10.5px] text-muted">
+      <p className="mt-3 flex items-center gap-1.5 text-[13px] text-muted">
         <Sparkles size={10} className="text-ai" />
         Every plan keeps the same compiler, typography and export pipeline.
       </p>

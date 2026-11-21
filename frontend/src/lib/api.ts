@@ -181,6 +181,7 @@ export const api = {
       blocks: Project["blocks"];
       settings: DocSettings;
       latexOverride: string | null;
+      clearLatexOverride: boolean;
       snapshotLabel: string;
     }>,
   ) =>
@@ -191,6 +192,12 @@ export const api = {
 
   deleteProject: (id: string) =>
     request<{ ok: boolean }>(`/projects/${id}`, { method: "DELETE" }),
+
+  duplicateProject: (id: string, title?: string) =>
+    request<{ project: Project }>(`/projects/${id}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    }),
 
   versions: (id: string) =>
     request<{ versions: VersionEntry[] }>(`/projects/${id}/versions`),

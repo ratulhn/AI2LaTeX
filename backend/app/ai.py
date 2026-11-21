@@ -138,17 +138,33 @@ def _backoff(attempt: int, started: float) -> None:
     _sleep(min(delay, budget_left))
 
 
-def _call_gemini(prompt: str, *, temperature: float = 0.4, max_tokens: int = 1400) -> str | None:
+def _call_gemini(
+    prompt: str,
+    *,
+    temperature: float = 0.4,
+    max_tokens: int = 1400,
+    system: str | None = None,
+    json_mode: bool = False,
+) -> str | None:
+    """Single Gemini round trip. ``json_mode`` asks the model for strict JSON.
+
+    Without ``responseMimeType: application/json`` Gemini answers JSON-shaped
+    requests with prose, which silently broke the polish diff (the parse failed
+    and the response fell back to the offline editor even with a key present).
+    """
     key = api_key()
     if not key:
         return None
+    generation: dict[str, Any] = {
+        "temperature": temperature,
+        "maxOutputTokens": max_tokens,
+    }
+    if json_mode:
+        generation["responseMimeType"] = "application/json"
     body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_RULES}]},
+        "system_instruction": {"parts": [{"text": system or SYSTEM_RULES}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-        },
+        "generationConfig": generation,
     }
     data = _post_with_retry(
         _generate_url(), params={"key": key}, json_body=body, timeout=60
@@ -369,7 +385,17 @@ def polish(blocks: list[dict[str, Any]], options: list[str]) -> dict[str, Any]:
         + json.dumps(blocks, ensure_ascii=False)
         + '\nReturn {"blocks":[{"id":"...","text":"..."}]} with the same ids and order.'
     )
-    raw = _call_gemini(prompt, temperature=0.2)
+    # json_mode is required: without it Gemini answers with prose and the parse
+    # below fails, which made the AI polish silently fall back to rule-based edits.
+    # The budget must also be generous: echoing every block back as JSON exceeds
+    # 1400 tokens for a normal document and a truncated reply is unparseable.
+    raw = _call_gemini(
+        prompt,
+        temperature=0.2,
+        system=POLISH_SYSTEM,
+        json_mode=True,
+        max_tokens=8192,
+    )
     if raw:
         try:
             cleaned = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.M).strip()
@@ -390,6 +416,9 @@ def polish(blocks: list[dict[str, Any]], options: list[str]) -> dict[str, Any]:
                     )
             if changes:
                 return {"changes": changes, "source": "gemini"}
+            # A valid, empty diff is still a real model answer: the text already
+            # reads as academic prose. Do not silently substitute offline edits.
+            return {"changes": [], "source": "gemini"}
         except Exception:
             pass
 

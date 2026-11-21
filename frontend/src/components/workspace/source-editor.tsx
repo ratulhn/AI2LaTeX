@@ -72,18 +72,18 @@ export function SourceEditor({
     <div className="flex h-full min-h-0 flex-col bg-[#0f172a]">
       <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-[4px] bg-white/10 px-2 py-[3px] font-mono text-[11px] text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-[4px] bg-white/10 px-2 py-[3px] font-mono text-[13.5px] text-white">
             main.tex
           </span>
-          <span className="rounded-[3px] bg-white/[0.06] px-1.5 py-[2px] font-mono text-[10px] text-[#94a3b8]">
+          <span className="rounded-[3px] bg-white/[0.06] px-1.5 py-[2px] font-mono text-[12.5px] text-[#94a3b8]">
             IEEEtran · LaTeX
           </span>
           {dirty ? (
-            <span className="inline-flex items-center gap-1 text-[10.5px] text-[#fbbf24]">
+            <span className="inline-flex items-center gap-1 text-[13px] text-[#fbbf24]">
               <span className="h-[5px] w-[5px] rounded-full bg-[#fbbf24]" /> unsaved
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10.5px] text-[#4ade80]">
+            <span className="inline-flex items-center gap-1 text-[13px] text-[#4ade80]">
               <Check size={10} /> in sync
             </span>
           )}
@@ -119,7 +119,7 @@ export function SourceEditor({
       <div className="relative flex min-h-0 flex-1">
         <div
           ref={gutterRef}
-          className="scroll-thin w-[46px] shrink-0 select-none overflow-hidden border-r border-white/10 py-3 text-right font-mono text-[12px] leading-[1.65] text-[#475569]"
+          className="scroll-thin w-[46px] shrink-0 select-none overflow-hidden border-r border-white/10 py-3 text-right font-mono text-[14.5px] leading-[1.65] text-[#475569]"
           aria-hidden
         >
           {lines.map((_, i) => (
@@ -170,7 +170,7 @@ export function SourceEditor({
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-white/10 px-3 py-1.5 font-mono text-[10.5px] text-[#64748b]">
+      <div className="flex items-center justify-between border-t border-white/10 px-3 py-1.5 font-mono text-[13px] text-[#64748b]">
         <span>
           Ln {cursor.line}, Col {cursor.col}
         </span>

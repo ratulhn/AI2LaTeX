@@ -51,7 +51,7 @@ export function PdfPreview({
           >
             <ChevronLeft size={13} />
           </button>
-          <span className="min-w-[52px] text-center font-mono text-[11px] text-slate-mid">
+          <span className="min-w-[52px] text-center font-mono text-[13.5px] text-slate-mid">
             {page} / {totalPages}
           </span>
           <button
@@ -72,7 +72,7 @@ export function PdfPreview({
           >
             <Minus size={12} />
           </button>
-          <span className="w-10 text-center font-mono text-[11px] text-slate-mid">{zoom}%</span>
+          <span className="w-10 text-center font-mono text-[13.5px] text-slate-mid">{zoom}%</span>
           <button
             onClick={() => setZoom((z) => Math.min(200, z + 10))}
             className="grid h-6 w-6 place-items-center rounded-[4px] text-slate-mid hover:bg-slate-soft"
@@ -82,7 +82,7 @@ export function PdfPreview({
           </button>
           <button
             onClick={() => setZoom(100)}
-            className="ml-1 rounded-[4px] px-1.5 py-[2px] text-[10.5px] text-slate-mid hover:bg-slate-soft"
+            className="ml-1 rounded-[4px] px-1.5 py-[2px] text-[13px] text-slate-mid hover:bg-slate-soft"
           >
             Fit Width
           </button>
@@ -90,7 +90,7 @@ export function PdfPreview({
           <button
             onClick={onRefresh}
             disabled={busy || readOnly}
-            className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-[2px] text-[10.5px] font-medium text-blue hover:bg-blue-soft disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-[2px] text-[13px] font-medium text-blue hover:bg-blue-soft disabled:opacity-50"
           >
             {busy ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
             {busy ? "Compiling…" : "Update PDF"}
@@ -111,10 +111,10 @@ export function PdfPreview({
 
       {compile && !compile.ok && compile.errors.length ? (
         <div className="border-b border-[#fecaca] bg-[#fef2f2] px-3 py-2">
-          <p className="flex items-center gap-1.5 text-[11.5px] font-medium text-danger">
+          <p className="flex items-center gap-1.5 text-[14px] font-medium text-danger">
             <TriangleAlert size={12} /> Compilation error
           </p>
-          <pre className="mt-1 max-h-[76px] overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-relaxed text-[#991b1b]">
+          <pre className="mt-1 max-h-[76px] overflow-auto whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-[#991b1b]">
             {compile.errors.join("\n")}
           </pre>
         </div>
@@ -136,13 +136,13 @@ export function PdfPreview({
               <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-white shadow-sm">
                 <Loader2 size={16} className="animate-spin text-watermark" />
               </div>
-              <p className="text-[12.5px] text-muted">Compiling your document…</p>
+              <p className="text-[15px] text-muted">Compiling your document…</p>
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-border bg-white px-3 py-1.5 text-[10.5px] text-muted">
+      <div className="flex items-center justify-between border-t border-border bg-white px-3 py-1.5 text-[13px] text-muted">
         <span className="flex items-center gap-1.5">
           {compile?.ok ? (
             <>
